@@ -19,6 +19,9 @@ class TechnicianViewModel(
             tasks.filter { it.assignedToTechnicianId == technicianId }
         }
 
+    val technicianDetails: Flow<com.example.cookstovecare.data.entity.Technician?> =
+        repository.getTechnicianByIdFlow(technicianId)
+
     fun moveToInProgress(taskId: Long) {
         viewModelScope.launch {
             repository.moveTaskToInProgress(taskId)

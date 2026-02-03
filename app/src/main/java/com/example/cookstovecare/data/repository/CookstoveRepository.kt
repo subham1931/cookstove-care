@@ -10,6 +10,7 @@ import com.example.cookstovecare.data.local.TechnicianDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 /**
  * Technician with assigned task count for supervisor display.
@@ -196,6 +197,9 @@ class CookstoveRepository(
         }
 
     suspend fun getTechnicianById(id: Long): Technician? = technicianDataStore.getTechnicianById(id)
+
+    fun getTechnicianByIdFlow(id: Long): Flow<Technician?> =
+        technicianDataStore.allTechnicians.map { techs -> techs.find { it.id == id } }
 
     suspend fun getTechnicianByPhoneNumber(phoneNumber: String): Technician? =
         technicianDataStore.getTechnicianByPhoneNumber(phoneNumber)
