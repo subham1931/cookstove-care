@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- Stove body - light grey rounded rect -->
+    <path
+        android:fillColor="#E8E8E8"
+        android:pathData="M40,70 L50,55 L150,55 L160,70 L160,160 L40,160 Z"/>
+    <path
+        android:fillColor="#D4D4D4"
+        android:pathData="M40,70 L160,70 L160,160 L40,160 Z"/>
+    <!-- Burners - orange circles with light diamond center -->
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M65,95 m-16,0 a 16,16 0 1,1 32,0 a 16,16 0 1,1 -32,0"/>
+    <path
+        android:fillColor="#FFE0B2"
+        android:pathData="M62,92 L65,88 L68,92 L65,96 Z"/>
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M135,95 m-16,0 a 16,16 0 1,1 32,0 a 16,16 0 1,1 -32,0"/>
+    <path
+        android:fillColor="#FFE0B2"
+        android:pathData="M132,92 L135,88 L138,92 L135,96 Z"/>
+</vector>

@@ -142,7 +142,7 @@ fun RepairFormScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Cookstove Number (from task creation - read-only)
+            // 1. Pre-filled from task: Cookstove Number, Received Date, Received Image
             Text(
                 text = stringResource(R.string.cookstove_number),
                 style = MaterialTheme.typography.labelMedium,
@@ -166,20 +166,10 @@ fun RepairFormScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
-            // 2. Type of Repair (multi-select)
-            Text(
-                text = stringResource(R.string.type_of_repair),
-                style = MaterialTheme.typography.titleSmall
-            )
-            RepairTypeOfRepairCheckboxes(
-                selectedTypes = uiState.selectedTypesOfRepair,
-                onTypeToggled = { viewModel.toggleTypeOfRepair(it) }
-            )
-
-            // 3. Received Date and Image (from task creation)
             Text(
                 text = stringResource(R.string.received_date),
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -203,6 +193,7 @@ fun RepairFormScreen(
                     Icon(Icons.Default.CalendarToday, contentDescription = null)
                 }
             }
+
             Text(
                 text = stringResource(R.string.received_image),
                 style = MaterialTheme.typography.labelMedium,
@@ -213,7 +204,17 @@ fun RepairFormScreen(
                 onSelectClick = { beforeImagePicker.launch("image/*") }
             )
 
-            // 4. Submit Date and Image
+            // 2. Type of Repair (multi-select)
+            Text(
+                text = stringResource(R.string.type_of_repair),
+                style = MaterialTheme.typography.titleSmall
+            )
+            RepairTypeOfRepairCheckboxes(
+                selectedTypes = uiState.selectedTypesOfRepair,
+                onTypeToggled = { viewModel.toggleTypeOfRepair(it) }
+            )
+
+            // 3. Submit Date and Image
             Text(
                 text = stringResource(R.string.submit_date),
                 style = MaterialTheme.typography.titleSmall

@@ -1,6 +1,5 @@
 package com.example.cookstovecare.ui.viewmodel
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -32,10 +31,10 @@ data class RepairFormUiState(
 
 class RepairFormViewModel(
     private val repository: CookstoveRepository,
-    savedStateHandle: SavedStateHandle
+    taskId: Long
 ) : ViewModel() {
 
-    private val taskId: Long = savedStateHandle.get<Long>("taskId") ?: 0L
+    private val taskId: Long = taskId
 
     private val _uiState = MutableStateFlow(RepairFormUiState(taskId = taskId))
     val uiState: StateFlow<RepairFormUiState> = _uiState.asStateFlow()
@@ -130,12 +129,12 @@ class RepairFormViewModel(
 
 class RepairFormViewModelFactory(
     private val repository: CookstoveRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val taskId: Long
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(RepairFormViewModel::class.java)) {
-            return RepairFormViewModel(repository, savedStateHandle) as T
+            return RepairFormViewModel(repository, taskId) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

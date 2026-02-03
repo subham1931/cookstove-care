@@ -10,5 +10,6 @@ import com.example.cookstovecare.data.repository.CookstoveRepository
 class CookstoveCareApplication : Application() {
 
     val dataStore by lazy { CookstoveDataStore(applicationContext) }
+    val authDataStore by lazy { com.example.cookstovecare.data.local.AuthDataStore(applicationContext) }
     val repository by lazy { CookstoveRepository(dataStore) }
 }

@@ -5,6 +5,8 @@ package com.example.cookstovecare.navigation
  * Uses type-safe route format with optional arguments.
  */
 object NavRoutes {
+    const val WELCOME = "welcome"
+    const val AUTH = "auth"
     const val DASHBOARD = "dashboard"
     const val DASHBOARD_EDIT = "dashboard_edit/{taskId}"
     const val TASK_DETAIL = "task_detail/{taskId}"
