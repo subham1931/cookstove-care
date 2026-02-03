@@ -100,7 +100,7 @@ class CookstoveDataStore(private val context: Context) {
                     cookstoveNumber = cookstoveNumber,
                     customerName = customerName,
                     collectionDate = collectionDate,
-                    receivedProductImageUri = newImageUri ?: existing.receivedProductImageUri
+                    receivedProductImageUri = newImageUri
                 )
                 editPrefs[tasksKey] = gson.toJson(dtos)
             }

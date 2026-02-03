@@ -171,7 +171,8 @@ fun EditTaskFormContent(
                     )
                     TaskImagePickerCard(
                         imageUri = uiState.receivedProductImageUri,
-                        onSelectClick = { receivedImagePicker.launch("image/*") }
+                        onSelectClick = { receivedImagePicker.launch("image/*") },
+                        onClearClick = { viewModel.setReceivedProductImageUri(null) }
                     )
                 }
             }

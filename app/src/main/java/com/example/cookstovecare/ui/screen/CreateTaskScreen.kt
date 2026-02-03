@@ -17,11 +17,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -31,12 +33,15 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,13 +49,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.cookstovecare.R
+import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.ui.viewmodel.CreateTaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -58,9 +68,88 @@ import java.util.Date
 import java.util.Locale
 
 /**
+ * Success dialog shown when a task is created. Use at Dashboard level (not inside Create Task modal)
+ * so it appears over the dashboard, not over the Create Task sheet.
+ */
+@Composable
+fun TaskCreatedSuccessDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(40.dp))
+                        .background(SuccessGreen.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = SuccessGreen,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.task_created_success),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = stringResource(R.string.task_created_success_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 2.dp,
+                        pressedElevation = 4.dp
+                    )
+                ) {
+                    Text(
+                        stringResource(android.R.string.ok),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Create Task form content for use in a modal or other container.
  * Cookstove Number, Customer Name, Collection Date, Received Product Image, Type of Process.
- * On successful save, shows success dialog; on OK, calls onTaskCreatedSuccess.
+ * On successful save, calls onTaskCreatedSuccess to close modal; parent shows success dialog.
  */
 private const val TYPE_REPAIRING = "REPAIRING"
 private const val TYPE_REPLACEMENT = "REPLACEMENT"
@@ -96,36 +185,9 @@ fun CreateTaskFormContent(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         if (uiState.createdTaskId != null) {
-            AlertDialog(
-                onDismissRequest = { },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(48.dp)
-                    )
-                },
-                title = {
-                    Text(text = stringResource(R.string.task_created_success))
-                },
-                text = {
-                    Text(
-                        text = stringResource(R.string.task_created_success_message),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.resetAfterNavigation()
-                            onTaskCreatedSuccess()
-                        }
-                    ) {
-                        Text(stringResource(android.R.string.ok))
-                    }
-                }
-            )
+            LaunchedEffect(uiState.createdTaskId) {
+                onTaskCreatedSuccess()
+            }
         } else {
             // Form
             Card(
@@ -222,9 +284,10 @@ fun CreateTaskFormContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                         TaskImagePickerCard(
-                        imageUri = uiState.receivedProductImageUri,
-                        onSelectClick = { receivedImagePicker.launch("image/*") }
-                    )
+                            imageUri = uiState.receivedProductImageUri,
+                            onSelectClick = { receivedImagePicker.launch("image/*") },
+                            onClearClick = { viewModel.setReceivedProductImageUri(null) }
+                        )
 
                     Text(
                         text = stringResource(R.string.type_of_process),
@@ -280,7 +343,8 @@ fun CreateTaskFormContent(
 @Composable
 internal fun TaskImagePickerCard(
     imageUri: String?,
-    onSelectClick: () -> Unit
+    onSelectClick: () -> Unit,
+    onClearClick: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -290,19 +354,36 @@ internal fun TaskImagePickerCard(
         )
     ) {
         if (imageUri != null) {
-            Image(
-                painter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(imageUri)
-                        .crossfade(true)
-                        .build()
-                ),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                contentScale = ContentScale.Crop
-            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(imageUri)
+                            .crossfade(true)
+                            .build()
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    contentScale = ContentScale.Crop
+                )
+                if (onClearClick != null) {
+                    IconButton(
+                        onClick = onClearClick,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.clear_image),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
         }
         Button(
             onClick = onSelectClick,
@@ -347,7 +428,7 @@ private fun CreateTaskTypeOfProcessDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(),
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,

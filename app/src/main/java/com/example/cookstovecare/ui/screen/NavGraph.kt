@@ -43,24 +43,24 @@ fun CookstoveCareNavGraph(
             DashboardScreen(
                 viewModel = viewModel,
                 repository = repository,
+                initialEditTaskId = null,
                 onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) }
             )
         }
 
         composable(
-            route = NavRoutes.TASK_ACTION_SELECTION,
+            route = NavRoutes.DASHBOARD_EDIT,
             arguments = listOf(navArgument("taskId") { type = NavType.LongType })
         ) { backStackEntry ->
-            TaskActionSelectionScreen(
-                onRepairClick = {
-                    val taskId = backStackEntry.arguments?.getLong("taskId") ?: 0L
-                    navController.navigate(NavRoutes.repairForm(taskId))
-                },
-                onReplacementClick = {
-                    val taskId = backStackEntry.arguments?.getLong("taskId") ?: 0L
-                    navController.navigate(NavRoutes.replacementForm(taskId))
-                },
-                onBack = { navController.popBackStack() }
+            val taskId = backStackEntry.arguments?.getLong("taskId") ?: 0L
+            val viewModel: DashboardViewModel = viewModel(
+                factory = DashboardViewModelFactory(repository)
+            )
+            DashboardScreen(
+                viewModel = viewModel,
+                repository = repository,
+                initialEditTaskId = taskId,
+                onTaskClick = { id -> navController.navigate(NavRoutes.taskDetail(id)) }
             )
         }
 
@@ -85,6 +85,11 @@ fun CookstoveCareNavGraph(
                 onReplacementClick = {
                     val taskId = backStackEntry.arguments?.getLong("taskId") ?: 0L
                     navController.navigate(NavRoutes.replacementForm(taskId))
+                },
+                onEditClick = {
+                    val taskId = backStackEntry.arguments?.getLong("taskId") ?: 0L
+                    navController.popBackStack()
+                    navController.navigate(NavRoutes.dashboardEdit(taskId))
                 },
                 onBack = { navController.popBackStack() }
             )

@@ -50,6 +50,7 @@
     <string name="after_repair_image">After Repair Image (required)</string>
     <string name="submit">Submit</string>
     <string name="select_image">Select Image</string>
+    <string name="clear_image">Clear image</string>
     <string name="error_repair_date_before_collection">Repair date cannot be before collection date</string>
     <string name="error_parts_or_notes_required">At least one part or repair notes is required</string>
     <string name="error_type_of_repair_required">Please select at least one type of repair</string>

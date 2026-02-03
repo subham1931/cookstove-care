@@ -73,15 +73,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     repository: CookstoveRepository,
+    initialEditTaskId: Long? = null,
     onTaskClick: (Long) -> Unit
 ) {
     val tasks by viewModel.tasks.collectAsState()
     var showCreateTaskModal by remember { mutableStateOf(false) }
-    var editTaskId by remember { mutableStateOf<Long?>(null) }
+    var showTaskCreatedSuccess by remember { mutableStateOf(false) }
+    var editTaskId by remember(initialEditTaskId) { mutableStateOf<Long?>(initialEditTaskId) }
     val createTaskViewModel: CreateTaskViewModel = viewModel(
         factory = CreateTaskViewModelFactory(repository)
     )
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
         floatingActionButton = {
@@ -139,7 +142,7 @@ fun DashboardScreen(
                     showCreateTaskModal = false
                     createTaskViewModel.resetAfterNavigation()
                 },
-                sheetState = sheetState
+                sheetState = createSheetState
             ) {
                 Column(
                     modifier = Modifier
@@ -155,11 +158,20 @@ fun DashboardScreen(
                         viewModel = createTaskViewModel,
                         onTaskCreatedSuccess = {
                             showCreateTaskModal = false
-                            createTaskViewModel.resetAfterNavigation()
+                            showTaskCreatedSuccess = true
                         }
                     )
                 }
             }
+        }
+
+        if (showTaskCreatedSuccess) {
+            TaskCreatedSuccessDialog(
+                onDismiss = {
+                    showTaskCreatedSuccess = false
+                    createTaskViewModel.resetAfterNavigation()
+                }
+            )
         }
 
         val taskIdToEdit = editTaskId
@@ -170,7 +182,7 @@ fun DashboardScreen(
             )
             ModalBottomSheet(
                 onDismissRequest = { editTaskId = null },
-                sheetState = sheetState
+                sheetState = editSheetState
             ) {
                 Column(
                     modifier = Modifier

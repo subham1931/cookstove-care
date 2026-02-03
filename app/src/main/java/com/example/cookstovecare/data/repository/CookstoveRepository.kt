@@ -39,7 +39,7 @@ class CookstoveRepository(
             cookstoveNumber = trimmedNumber,
             customerName = customerName?.trim()?.takeIf { it.isNotEmpty() },
             collectionDate = collectionDate,
-            receivedProductImageUri = receivedProductImageUri ?: existingTask.receivedProductImageUri
+            receivedProductImageUri = receivedProductImageUri?.takeIf { it.isNotBlank() }
         )
         return Result.success(Unit)
     }

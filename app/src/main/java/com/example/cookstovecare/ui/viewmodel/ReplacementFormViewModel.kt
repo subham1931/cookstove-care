@@ -44,9 +44,16 @@ class ReplacementFormViewModel(
         viewModelScope.launch {
             val task = repository.getTaskById(taskId)
             task?.let {
-                _uiState.value = _uiState.value.copy(oldCookstoveNumber = it.cookstoveNumber)
+                _uiState.value = _uiState.value.copy(
+                    oldCookstoveNumber = it.cookstoveNumber,
+                    oldCookstoveImageUri = it.receivedProductImageUri
+                )
             }
         }
+    }
+
+    fun updateReplacementDate(millis: Long) {
+        _uiState.value = _uiState.value.copy(replacementDateMillis = millis, errorMessage = null)
     }
 
     fun updateNewCookstoveNumber(value: String) {
