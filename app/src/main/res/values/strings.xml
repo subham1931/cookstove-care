@@ -10,6 +10,16 @@
     <string name="auth_error_phone_required">Phone number is required</string>
     <string name="auth_error_password_required">Password is required</string>
     <string name="auth_error_password_length">Password must be at least 6 characters</string>
+    <string name="auth_error_password_mismatch">Passwords do not match</string>
+    <string name="auth_error_phone_registered">This phone number is already registered</string>
+    <string name="auth_error_login_failed">Invalid phone number or password</string>
+    <string name="auth_center_name">Center Name (optional)</string>
+    <string name="auth_confirm_password">Confirm Password</string>
+    <string name="auth_sign_up">Create Account</string>
+    <string name="auth_sign_up_subtitle">Register your repair center to get started</string>
+    <string name="auth_have_account">Already have an account?</string>
+    <string name="auth_no_account">Don\'t have an account?</string>
+    <string name="auth_sign_in">Sign In</string>
     <string name="back">Back</string>
     <string name="logout">Logout</string>
 
@@ -58,6 +68,9 @@
     <string name="error_empty_cookstove_number">Cookstove number is required</string>
     <string name="error_duplicate_cookstove_number">This cookstove number already has an active task</string>
 
+    <!-- Task Detail -->
+    <string name="task_type">Task Type</string>
+
     <!-- Task Action Selection -->
     <string name="choose_action">Choose Action</string>
     <string name="repair">Repair</string>
@@ -79,6 +92,8 @@
     <string name="after_repair_image">After Repair Image (required)</string>
     <string name="submit">Submit</string>
     <string name="select_image">Select Image</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="choose_from_gallery">Choose from Gallery</string>
     <string name="clear_image">Clear image</string>
     <string name="error_repair_date_before_collection">Repair date cannot be before collection date</string>
     <string name="error_parts_or_notes_required">At least one part or repair notes is required</string>
@@ -127,10 +142,11 @@
     <string name="proceed_replacement">Proceed to Replacement</string>
     <string name="start_repairing">Start Repairing</string>
     <string name="no_image">No image yet</string>
-    <string name="task_created_success">Task created successfully!</string>
+    <string name="task_created_success">Created successfully!</string>
     <string name="task_created_success_message">Your task has been created. You can find it on the dashboard.</string>
     <string name="choose_next_action">Choose next action</string>
     <string name="task_completed">This task is already completed</string>
+    <string name="edit_submitted_report">Edit Submitted Report</string>
     <string name="task_not_found">Task not found</string>
 
     <!-- Permissions -->

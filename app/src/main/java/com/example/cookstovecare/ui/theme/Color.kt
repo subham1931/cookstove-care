@@ -28,6 +28,14 @@ val WelcomeIconBuild = Color(0xFFF48FB1)
 val WelcomeIconAssignment = Color(0xFF81C784)
 val WelcomeIconSettings = Color(0xFFB39DDB)
 
+// Auth screens — modern gradient accents
+val AuthGradientStart = Color(0xFF667EEA)
+val AuthGradientEnd = Color(0xFF764BA2)
+val AuthGradientStartDark = Color(0xFF4C51BF)
+val AuthGradientEndDark = Color(0xFF553C9A)
+val AuthCardSurface = Color(0xFFF8FAFC)
+val AuthCardSurfaceDark = Color(0xFF1E293B)
+
 // Welcome — dark theme (deeper, less saturated)
 val WelcomeGradientGreenDark = Color(0xFF1B3D1F)
 val WelcomeGradientYellowDark = Color(0xFF3D3612)

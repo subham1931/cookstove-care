@@ -7,6 +7,7 @@ package com.example.cookstovecare.navigation
 object NavRoutes {
     const val WELCOME = "welcome"
     const val AUTH = "auth"
+    const val SIGN_UP = "sign_up"
     const val DASHBOARD = "dashboard"
     const val DASHBOARD_EDIT = "dashboard_edit/{taskId}"
     const val TASK_DETAIL = "task_detail/{taskId}"

@@ -24,10 +24,13 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ImageNotSupported
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -169,6 +172,17 @@ fun TaskDetailScreen(
                                         value = name
                                     )
                                 }
+                                task.typeOfProcess?.let { type ->
+                                    OfficeDataItem(
+                                        icon = Icons.Default.Build,
+                                        label = stringResource(R.string.task_type),
+                                        value = when (type) {
+                                            "REPAIRING" -> stringResource(R.string.type_repairing)
+                                            "REPLACEMENT" -> stringResource(R.string.type_replacement)
+                                            else -> type
+                                        }
+                                    )
+                                }
                                 OfficeDataItem(
                                     icon = Icons.Default.CalendarToday,
                                     label = stringResource(R.string.collection_date),
@@ -187,12 +201,30 @@ fun TaskDetailScreen(
                                 )
                             }
 
-                            // When completed: add completion image and date
-                            if (completionImageUri != null || completionDate != null) {
+                            // When completed: add type of repair done (for repair tasks), completion date, and image
+                            if (repairData != null) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 16.dp),
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                 )
+                                TaskDetailTypeOfRepairCard(
+                                    label = stringResource(R.string.type_of_repair),
+                                    selectedTypes = repairData.typesOfRepair.toSet()
+                                )
+                            }
+                            if (completionImageUri != null || completionDate != null || (replacementData?.collectedDate != null)) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 16.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
+                                replacementData?.collectedDate?.let { millis ->
+                                    OfficeDataItem(
+                                        icon = Icons.Default.CalendarToday,
+                                        label = stringResource(R.string.collection_date),
+                                        value = dateFormat.format(Date(millis))
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
                                 completionDate?.let { millis ->
                                     OfficeDataItem(
                                         icon = Icons.Default.CalendarToday,
@@ -212,7 +244,7 @@ fun TaskDetailScreen(
                         }
                     }
 
-                    // Complete form button
+                    // Complete form button (when collected)
                     if (viewModel.canProceedToRepairOrReplacement) {
                         Spacer(modifier = Modifier.height(8.dp))
                         when (task.typeOfProcess) {
@@ -251,6 +283,73 @@ fun TaskDetailScreen(
                                 }
                             }
                         }
+                    }
+
+                    // Edit submitted report (when completed)
+                    if (repairData != null || replacementData != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = when {
+                                repairData != null -> onRepairClick
+                                else -> onReplacementClick
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                            Text(stringResource(R.string.edit_submitted_report))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val TYPE_OF_REPAIR_OPTIONS = listOf(
+    "TOP_PLACE" to R.string.type_repair_top_place,
+    "DOOR_REPAIR" to R.string.type_repair_door_repair,
+    "BOTTOM_REPAIR" to R.string.type_repair_bottom_repair
+)
+
+@Composable
+private fun TaskDetailTypeOfRepairCard(
+    label: String,
+    selectedTypes: Set<String>
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TYPE_OF_REPAIR_OPTIONS.forEach { (typeKey, labelRes) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = typeKey in selectedTypes,
+                            onCheckedChange = { },
+                            enabled = false
+                        )
+                        Text(
+                            text = stringResource(labelRes),
+                            modifier = Modifier.padding(start = 8.dp),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
             }

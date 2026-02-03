@@ -17,6 +17,7 @@ data class ReplacementFormUiState(
     val taskId: Long = 0L,
     val oldCookstoveNumber: String = "",
     val newCookstoveNumber: String = "",
+    val collectedDateMillis: Long = System.currentTimeMillis(),
     val replacementDateMillis: Long = System.currentTimeMillis(),
     val oldCookstoveImageUri: String? = null,
     val newCookstoveImageUri: String? = null,
@@ -42,13 +43,29 @@ class ReplacementFormViewModel(
     private fun loadTaskForOldNumber() {
         viewModelScope.launch {
             val task = repository.getTaskById(taskId)
-            task?.let {
-                _uiState.value = _uiState.value.copy(
-                    oldCookstoveNumber = it.cookstoveNumber,
-                    oldCookstoveImageUri = it.receivedProductImageUri
+            val existingReplacement = repository.getReplacementDataByTaskId(taskId)
+            if (task != null) {
+                val baseState = _uiState.value.copy(
+                    oldCookstoveNumber = task.cookstoveNumber,
+                    oldCookstoveImageUri = task.receivedProductImageUri
                 )
+                _uiState.value = if (existingReplacement != null) {
+                    baseState.copy(
+                        newCookstoveNumber = existingReplacement.newCookstoveNumber,
+                        collectedDateMillis = existingReplacement.collectedDate,
+                        replacementDateMillis = existingReplacement.replacementDate,
+                        oldCookstoveImageUri = existingReplacement.oldCookstoveImageUri.ifBlank { task.receivedProductImageUri },
+                        newCookstoveImageUri = existingReplacement.newCookstoveImageUri.takeIf { it.isNotBlank() }
+                    )
+                } else {
+                    baseState.copy(collectedDateMillis = task.collectionDate)
+                }
             }
         }
+    }
+
+    fun updateCollectedDate(millis: Long) {
+        _uiState.value = _uiState.value.copy(collectedDateMillis = millis, errorMessage = null)
     }
 
     fun updateReplacementDate(millis: Long) {
@@ -83,6 +100,7 @@ class ReplacementFormViewModel(
                 taskId = taskId,
                 oldCookstoveNumber = state.oldCookstoveNumber,
                 newCookstoveNumber = state.newCookstoveNumber,
+                collectedDate = state.collectedDateMillis,
                 replacementDate = state.replacementDateMillis,
                 oldCookstoveImageUri = oldUri,
                 newCookstoveImageUri = newUri

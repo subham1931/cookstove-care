@@ -3,7 +3,7 @@ package com.example.cookstovecare.ui.screen
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,11 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,17 +36,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
 import com.example.cookstovecare.R
+import com.example.cookstovecare.ui.components.ImagePickerCard
 import com.example.cookstovecare.ui.viewmodel.RepairFormViewModel
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -90,6 +88,25 @@ fun RepairFormScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         viewModel.setAfterRepairImageUri(uri?.toString())
+    }
+
+    var beforeCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val beforeImageCamera = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && beforeCameraUri != null) {
+            viewModel.setBeforeRepairImageUri(beforeCameraUri.toString())
+        }
+        beforeCameraUri = null
+    }
+    var afterCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val afterImageCamera = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && afterCameraUri != null) {
+            viewModel.setAfterRepairImageUri(afterCameraUri.toString())
+        }
+        afterCameraUri = null
     }
 
     val errorMessageRes = when (uiState.errorMessage) {
@@ -201,7 +218,13 @@ fun RepairFormScreen(
             )
             ImagePickerCard(
                 imageUri = uiState.beforeRepairImageUri,
-                onSelectClick = { beforeImagePicker.launch("image/*") }
+                onTakePhoto = {
+                    val file = File(context.cacheDir, "camera_before_${System.currentTimeMillis()}.jpg")
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    beforeCameraUri = uri
+                    beforeImageCamera.launch(uri)
+                },
+                onChooseFromGallery = { beforeImagePicker.launch("image/*") }
             )
 
             // 2. Type of Repair (multi-select)
@@ -257,7 +280,13 @@ fun RepairFormScreen(
             )
             ImagePickerCard(
                 imageUri = uiState.afterRepairImageUri,
-                onSelectClick = { afterImagePicker.launch("image/*") }
+                onTakePhoto = {
+                    val file = File(context.cacheDir, "camera_after_${System.currentTimeMillis()}.jpg")
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    afterCameraUri = uri
+                    afterImageCamera.launch(uri)
+                },
+                onChooseFromGallery = { afterImagePicker.launch("image/*") }
             )
 
             if (errorMessageRes != null) {
@@ -288,43 +317,6 @@ fun RepairFormScreen(
                 Text(stringResource(R.string.submit))
             }
         }
-        }
-    }
-}
-
-@Composable
-private fun ImagePickerCard(
-    imageUri: String?,
-    onSelectClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-    ) {
-        if (imageUri != null && imageUri.isNotBlank()) {
-            Image(
-                painter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(imageUri)
-                        .crossfade(true)
-                        .build()
-                ),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                contentScale = ContentScale.Crop
-            )
-        }
-        Button(
-            onClick = onSelectClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-            Text(stringResource(R.string.select_image))
         }
     }
 }

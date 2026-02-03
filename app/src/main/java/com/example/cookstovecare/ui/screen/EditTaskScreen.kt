@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,14 +30,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
+import com.example.cookstovecare.ui.components.ImagePickerCard
 import com.example.cookstovecare.ui.viewmodel.EditTaskViewModel
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -60,6 +65,16 @@ fun EditTaskFormContent(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         viewModel.setReceivedProductImageUri(uri?.toString())
+    }
+
+    var currentCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val receivedImageCamera = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && currentCameraUri != null) {
+            viewModel.setReceivedProductImageUri(currentCameraUri.toString())
+        }
+        currentCameraUri = null
     }
 
     val errorMessageRes = when (uiState.errorMessage) {
@@ -169,9 +184,15 @@ fun EditTaskFormContent(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    TaskImagePickerCard(
+                    ImagePickerCard(
                         imageUri = uiState.receivedProductImageUri,
-                        onSelectClick = { receivedImagePicker.launch("image/*") },
+                        onTakePhoto = {
+                            val file = File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                            currentCameraUri = uri
+                            receivedImageCamera.launch(uri)
+                        },
+                        onChooseFromGallery = { receivedImagePicker.launch("image/*") },
                         onClearClick = { viewModel.setReceivedProductImageUri(null) }
                     )
                 }

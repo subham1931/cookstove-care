@@ -9,6 +9,7 @@ data class ReplacementData(
     val taskId: Long,
     val oldCookstoveNumber: String,
     val newCookstoveNumber: String,
+    val collectedDate: Long,
     val replacementDate: Long,
     val oldCookstoveImageUri: String,
     val newCookstoveImageUri: String,

@@ -12,6 +12,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.example.cookstovecare.ui.theme.AuthCardSurface
+import com.example.cookstovecare.ui.theme.AuthCardSurfaceDark
+import com.example.cookstovecare.ui.theme.AuthGradientEnd
+import com.example.cookstovecare.ui.theme.AuthGradientEndDark
+import com.example.cookstovecare.ui.theme.AuthGradientStart
+import com.example.cookstovecare.ui.theme.AuthGradientStartDark
 
 /** Welcome screen gradient and accent colors — light theme */
 data class WelcomeColors(
@@ -29,6 +35,21 @@ data class WelcomeColors(
     val iconAssignment: Color,
     val iconSettings: Color
 )
+
+/** Auth screen gradient and surface colors */
+data class AuthColors(
+    val gradientStart: Color,
+    val gradientEnd: Color,
+    val cardSurface: Color
+)
+
+val LocalAuthColors = compositionLocalOf {
+    AuthColors(
+        gradientStart = AuthGradientStart,
+        gradientEnd = AuthGradientEnd,
+        cardSurface = AuthCardSurface
+    )
+}
 
 val LocalWelcomeColors = compositionLocalOf {
     WelcomeColors(
@@ -62,6 +83,18 @@ private val WelcomeColorsLight = WelcomeColors(
     iconBuild = WelcomeIconBuild,
     iconAssignment = WelcomeIconAssignment,
     iconSettings = WelcomeIconSettings
+)
+
+private val AuthColorsLight = AuthColors(
+    gradientStart = AuthGradientStart,
+    gradientEnd = AuthGradientEnd,
+    cardSurface = AuthCardSurface
+)
+
+private val AuthColorsDark = AuthColors(
+    gradientStart = AuthGradientStartDark,
+    gradientEnd = AuthGradientEndDark,
+    cardSurface = AuthCardSurfaceDark
 )
 
 private val WelcomeColorsDark = WelcomeColors(
@@ -108,6 +141,7 @@ fun CookstovecareTheme(
     }
 
     val welcomeColors = if (darkTheme) WelcomeColorsDark else WelcomeColorsLight
+    val authColors = if (darkTheme) AuthColorsDark else AuthColorsLight
 
     MaterialTheme(
         colorScheme = colorScheme,
@@ -115,7 +149,9 @@ fun CookstovecareTheme(
     ) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalWelcomeColors provides welcomeColors,
-            content = content
-        )
+            LocalAuthColors provides authColors
+        ) {
+            content()
+        }
     }
 }

@@ -1,8 +1,9 @@
 package com.example.cookstovecare.ui.screen
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,11 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,17 +31,18 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
 import com.example.cookstovecare.R
+import com.example.cookstovecare.ui.components.ImagePickerCard
 import com.example.cookstovecare.ui.viewmodel.ReplacementFormViewModel
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -66,13 +65,32 @@ fun ReplacementFormScreen(
 
     val oldImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri: android.net.Uri? ->
+    ) { uri: Uri? ->
         viewModel.setOldCookstoveImageUri(uri?.toString())
     }
     val newImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri: android.net.Uri? ->
+    ) { uri: Uri? ->
         viewModel.setNewCookstoveImageUri(uri?.toString())
+    }
+
+    var oldCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val oldImageCamera = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && oldCameraUri != null) {
+            viewModel.setOldCookstoveImageUri(oldCameraUri.toString())
+        }
+        oldCameraUri = null
+    }
+    var newCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val newImageCamera = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && newCameraUri != null) {
+            viewModel.setNewCookstoveImageUri(newCameraUri.toString())
+        }
+        newCameraUri = null
     }
 
     val errorMessageRes = when (uiState.errorMessage) {
@@ -131,6 +149,46 @@ fun ReplacementFormScreen(
                 isError = errorMessageRes != null
             )
 
+            // Collected Date (editable)
+            OutlinedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val cal = Calendar.getInstance().apply { timeInMillis = uiState.collectedDateMillis }
+                        android.app.DatePickerDialog(
+                            context,
+                            { _, y, m, d ->
+                                cal.set(y, m, d)
+                                viewModel.updateCollectedDate(cal.timeInMillis)
+                            },
+                            cal.get(Calendar.YEAR),
+                            cal.get(Calendar.MONTH),
+                            cal.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.collection_date),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = dateFormat.format(Date(uiState.collectedDateMillis)),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                    Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+
             // Replacement Date (editable)
             OutlinedCard(
                 modifier = Modifier
@@ -176,9 +234,15 @@ fun ReplacementFormScreen(
                 text = stringResource(R.string.old_cookstove_image),
                 style = MaterialTheme.typography.titleSmall
             )
-            ReplacementImagePickerCard(
+            ImagePickerCard(
                 imageUri = uiState.oldCookstoveImageUri,
-                onSelectClick = { oldImagePicker.launch("image/*") }
+                onTakePhoto = {
+                    val file = File(context.cacheDir, "camera_old_${System.currentTimeMillis()}.jpg")
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    oldCameraUri = uri
+                    oldImageCamera.launch(uri)
+                },
+                onChooseFromGallery = { oldImagePicker.launch("image/*") }
             )
 
             // New Cookstove Image
@@ -186,9 +250,15 @@ fun ReplacementFormScreen(
                 text = stringResource(R.string.new_cookstove_image),
                 style = MaterialTheme.typography.titleSmall
             )
-            ReplacementImagePickerCard(
+            ImagePickerCard(
                 imageUri = uiState.newCookstoveImageUri,
-                onSelectClick = { newImagePicker.launch("image/*") }
+                onTakePhoto = {
+                    val file = File(context.cacheDir, "camera_new_${System.currentTimeMillis()}.jpg")
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    newCameraUri = uri
+                    newImageCamera.launch(uri)
+                },
+                onChooseFromGallery = { newImagePicker.launch("image/*") }
             )
 
             if (errorMessageRes != null) {
@@ -222,38 +292,3 @@ fun ReplacementFormScreen(
     }
 }
 
-@Composable
-private fun ReplacementImagePickerCard(
-    imageUri: String?,
-    onSelectClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-    ) {
-        if (imageUri != null) {
-            Image(
-                painter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(imageUri)
-                        .crossfade(true)
-                        .build()
-                ),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                contentScale = ContentScale.Crop
-            )
-        }
-        Button(
-            onClick = onSelectClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-            Text(stringResource(R.string.select_image))
-        }
-    }
-}

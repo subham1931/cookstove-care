@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,12 +53,13 @@ import com.example.cookstovecare.ui.viewmodel.AuthError
 import com.example.cookstovecare.ui.viewmodel.AuthViewModel
 
 /**
- * Modern repair center sign in screen.
+ * Modern sign up screen for new repair center registration.
  */
 @Composable
-fun RepairCenterAuthScreen(
+fun SignUpScreen(
     viewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit,
+    onSignUpSuccess: () -> Unit,
+    onSignInClick: () -> Unit,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -66,62 +70,64 @@ fun RepairCenterAuthScreen(
             .fillMaxSize()
             .background(colorScheme.background)
     ) {
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 8.dp)
-                .align(Alignment.TopStart)
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.back),
-                tint = colorScheme.onBackground
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .verticalScroll(rememberScrollState())
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Surface(
-                modifier = Modifier.size(88.dp),
-                shape = CircleShape,
-                color = colorScheme.primaryContainer
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(top = 16.dp, start = 0.dp, end = 8.dp, bottom = 8.dp)
+                    .align(Alignment.Start)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = null,
-                        modifier = Modifier.size(44.dp),
-                        tint = colorScheme.onPrimaryContainer
-                    )
-                }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = colorScheme.onBackground
+                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    modifier = Modifier.size(88.dp),
+                    shape = CircleShape,
+                    color = colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = null,
+                            modifier = Modifier.size(44.dp),
+                            tint = colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
 
-            Text(
-                text = stringResource(R.string.auth_title),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.auth_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colorScheme.onBackground.copy(alpha = 0.8f),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Text(
+                    text = stringResource(R.string.auth_sign_up),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.auth_sign_up_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onBackground.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+            }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -135,6 +141,29 @@ fun RepairCenterAuthScreen(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                    OutlinedTextField(
+                        value = uiState.centerName,
+                        onValueChange = viewModel::updateCenterName,
+                        label = { Text(stringResource(R.string.auth_center_name)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = colorScheme.primary
+                            )
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colorScheme.primary,
+                            unfocusedBorderColor = colorScheme.outlineVariant.copy(alpha = 0.6f),
+                            focusedLabelColor = colorScheme.primary,
+                            cursorColor = colorScheme.primary,
+                            focusedLeadingIconColor = colorScheme.primary
+                        )
+                    )
+
                     OutlinedTextField(
                         value = uiState.phoneNumber,
                         onValueChange = viewModel::updatePhoneNumber,
@@ -184,6 +213,31 @@ fun RepairCenterAuthScreen(
                         )
                     )
 
+                    OutlinedTextField(
+                        value = uiState.confirmPassword,
+                        onValueChange = viewModel::updateConfirmPassword,
+                        label = { Text(stringResource(R.string.auth_confirm_password)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = colorScheme.primary
+                            )
+                        },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colorScheme.primary,
+                            unfocusedBorderColor = colorScheme.outlineVariant.copy(alpha = 0.6f),
+                            focusedLabelColor = colorScheme.primary,
+                            cursorColor = colorScheme.primary,
+                            focusedLeadingIconColor = colorScheme.primary
+                        )
+                    )
+
                     uiState.error?.let { error ->
                         val message = when (error) {
                             AuthError.PHONE_REQUIRED ->
@@ -192,10 +246,11 @@ fun RepairCenterAuthScreen(
                                 stringResource(R.string.auth_error_password_required)
                             AuthError.PASSWORD_TOO_SHORT ->
                                 stringResource(R.string.auth_error_password_length)
-                            AuthError.LOGIN_FAILED ->
-                                stringResource(R.string.auth_error_login_failed)
-                            AuthError.PASSWORD_MISMATCH,
+                            AuthError.PASSWORD_MISMATCH ->
+                                stringResource(R.string.auth_error_password_mismatch)
                             AuthError.PHONE_ALREADY_REGISTERED ->
+                                stringResource(R.string.auth_error_phone_registered)
+                            AuthError.LOGIN_FAILED ->
                                 stringResource(R.string.auth_error_login_failed)
                         }
                         Text(
@@ -209,7 +264,7 @@ fun RepairCenterAuthScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Button(
-                        onClick = { viewModel.login(onLoginSuccess) },
+                        onClick = { viewModel.signUp(onSignUpSuccess) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -233,13 +288,39 @@ fun RepairCenterAuthScreen(
                                 modifier = Modifier.size(20.dp).padding(end = 8.dp)
                             )
                             Text(
-                                stringResource(R.string.auth_login),
+                                stringResource(R.string.auth_sign_up),
                                 fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
                     }
 
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.auth_have_account),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        TextButton(
+                            onClick = onSignInClick,
+                            modifier = Modifier.padding(start = 4.dp)
+                        ) {
+                            Text(
+                                stringResource(R.string.auth_sign_in),
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         }

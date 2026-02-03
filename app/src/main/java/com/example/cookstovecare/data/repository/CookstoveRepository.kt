@@ -118,6 +118,7 @@ class CookstoveRepository(
         taskId: Long,
         oldCookstoveNumber: String,
         newCookstoveNumber: String,
+        collectedDate: Long,
         replacementDate: Long,
         oldCookstoveImageUri: String,
         newCookstoveImageUri: String
@@ -125,7 +126,7 @@ class CookstoveRepository(
         if (oldCookstoveNumber.trim() == newCookstoveNumber.trim()) {
             return Result.failure(IllegalArgumentException("old_new_numbers_same"))
         }
-        if (dataStore.hasReplacementWithNewNumber(newCookstoveNumber.trim())) {
+        if (dataStore.hasReplacementWithNewNumberExcludingTaskId(taskId, newCookstoveNumber.trim())) {
             return Result.failure(IllegalArgumentException("duplicate_new_cookstove_number"))
         }
         if (dataStore.hasTaskWithNumber(newCookstoveNumber.trim())) {
@@ -138,6 +139,7 @@ class CookstoveRepository(
             taskId = taskId,
             oldCookstoveNumber = oldCookstoveNumber.trim(),
             newCookstoveNumber = newCookstoveNumber.trim(),
+            collectedDate = collectedDate,
             replacementDate = replacementDate,
             oldCookstoveImageUri = oldCookstoveImageUri,
             newCookstoveImageUri = newCookstoveImageUri

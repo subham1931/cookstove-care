@@ -46,14 +46,27 @@ class RepairFormViewModel(
     private fun loadTaskForCollectionDate() {
         viewModelScope.launch {
             val task = repository.getTaskById(taskId)
+            val existingRepair = repository.getRepairDataByTaskId(taskId)
             if (task != null) {
-                _uiState.value = _uiState.value.copy(
+                val baseState = _uiState.value.copy(
                     taskDataLoaded = true,
                     cookstoveNumber = task.cookstoveNumber,
                     collectionDateMillis = task.collectionDate,
                     repairCompletionDateMillis = maxOf(System.currentTimeMillis(), task.collectionDate),
                     beforeRepairImageUri = task.receivedProductImageUri
                 )
+                _uiState.value = if (existingRepair != null) {
+                    baseState.copy(
+                        repairCompletionDateMillis = existingRepair.repairCompletionDate,
+                        selectedParts = existingRepair.partsReplaced.toSet(),
+                        repairNotes = existingRepair.repairNotes ?: "",
+                        selectedTypesOfRepair = existingRepair.typesOfRepair.toSet(),
+                        beforeRepairImageUri = existingRepair.beforeRepairImageUri.ifBlank { task.receivedProductImageUri },
+                        afterRepairImageUri = existingRepair.afterRepairImageUri.takeIf { it.isNotBlank() }
+                    )
+                } else {
+                    baseState
+                }
             } else {
                 _uiState.value = _uiState.value.copy(taskDataLoaded = true)
             }

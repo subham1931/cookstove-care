@@ -144,6 +144,15 @@ class CookstoveDataStore(private val context: Context) {
         return map.values.any { it.newCookstoveNumber == number }
     }
 
+    /** True if another replacement (excluding taskId) has this new number. Used when editing. */
+    suspend fun hasReplacementWithNewNumberExcludingTaskId(taskId: Long, number: String): Boolean {
+        val prefs = context.dataStore.data.first()
+        val json = prefs[replacementsKey] ?: "{}"
+        @Suppress("UNCHECKED_CAST")
+        val map: Map<String, ReplacementDataDto> = (gson.fromJson(json, replacementMapType) as? Map<String, ReplacementDataDto>) ?: emptyMap()
+        return map.entries.any { (tid, dto) -> tid != taskId.toString() && dto.newCookstoveNumber == number }
+    }
+
     suspend fun insertRepair(repair: RepairData) {
         context.dataStore.edit { editPrefs ->
             val json = editPrefs[repairsKey] ?: "{}"
@@ -262,6 +271,7 @@ private data class ReplacementDataDto(
     val taskId: Long,
     val oldCookstoveNumber: String,
     val newCookstoveNumber: String,
+    val collectedDate: Long = 0L,
     val replacementDate: Long,
     val oldCookstoveImageUri: String,
     val newCookstoveImageUri: String,
@@ -272,6 +282,7 @@ private data class ReplacementDataDto(
         taskId = taskId,
         oldCookstoveNumber = oldCookstoveNumber,
         newCookstoveNumber = newCookstoveNumber,
+        collectedDate = if (collectedDate != 0L) collectedDate else replacementDate,
         replacementDate = replacementDate,
         oldCookstoveImageUri = oldCookstoveImageUri,
         newCookstoveImageUri = newCookstoveImageUri,
@@ -283,6 +294,7 @@ private data class ReplacementDataDto(
             taskId = r.taskId,
             oldCookstoveNumber = r.oldCookstoveNumber,
             newCookstoveNumber = r.newCookstoveNumber,
+            collectedDate = r.collectedDate,
             replacementDate = r.replacementDate,
             oldCookstoveImageUri = r.oldCookstoveImageUri,
             newCookstoveImageUri = r.newCookstoveImageUri,
