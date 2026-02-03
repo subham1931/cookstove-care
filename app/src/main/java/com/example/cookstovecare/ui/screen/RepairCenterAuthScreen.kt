@@ -1,8 +1,10 @@
 package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +48,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
+import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.ui.viewmodel.AuthError
 import com.example.cookstovecare.ui.viewmodel.AuthViewModel
 
@@ -55,7 +58,7 @@ import com.example.cookstovecare.ui.viewmodel.AuthViewModel
 @Composable
 fun RepairCenterAuthScreen(
     viewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (UserRole) -> Unit,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -121,7 +124,49 @@ fun RepairCenterAuthScreen(
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = stringResource(R.string.auth_select_role),
+                style = MaterialTheme.typography.labelLarge,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    UserRole.FIELD_OFFICER to R.string.role_field_officer,
+                    UserRole.SUPERVISOR to R.string.role_supervisor,
+                    UserRole.TECHNICIAN to R.string.role_technician
+                ).forEach { (role, labelRes) ->
+                    val isSelected = uiState.selectedRole == role
+                    Surface(
+                        onClick = { viewModel.updateSelectedRole(role) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) colorScheme.primary else colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(12.dp)
+                            ),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) colorScheme.primaryContainer.copy(alpha = 0.5f) else colorScheme.surface
+                    ) {
+                        Text(
+                            text = stringResource(labelRes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isSelected) colorScheme.primary else colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),

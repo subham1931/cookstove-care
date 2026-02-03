@@ -14,6 +14,10 @@ data class CookstoveTask(
     val status: String = "COLLECTED",
     val receivedProductImageUri: String? = null,
     val typeOfProcess: String? = null,
+    val assignedToTechnicianId: Long? = null,
+    val workStartedAt: Long? = null,
+    val returnDate: Long? = null,
+    val returnImageUri: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val statusEnum: TaskStatus

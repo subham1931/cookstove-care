@@ -3,6 +3,55 @@
 
     <!-- Auth -->
     <string name="auth_title">Repair Center Login</string>
+    <string name="auth_select_role">Select your role</string>
+    <string name="role_field_officer">Field Officer</string>
+    <string name="role_supervisor">Supervisor</string>
+    <string name="role_technician">Technician</string>
+    <string name="tasks_to_assign">Tasks to Assign</string>
+    <string name="tasks_to_assign_count">%d unassigned tasks</string>
+    <string name="no_tasks_to_assign">No tasks to assign</string>
+    <string name="assign_to_technician">Assign to Technician</string>
+    <string name="technicians">Technicians</string>
+    <string name="create_technician">Create Technician</string>
+    <string name="assigned_tasks">Assigned Tasks</string>
+    <string name="status_assigned">Assigned</string>
+    <string name="confirm_complete_task">Complete this task? You will need to fill the repair/replacement form.</string>
+    <string name="no_assigned_tasks">No tasks assigned</string>
+    <string name="start">Start</string>
+    <string name="complete">Complete</string>
+    <string name="technician_name">Technician Name</string>
+    <string name="technician_phone">Phone / ID</string>
+    <string name="technician_id">ID</string>
+    <string name="no_technicians">No technicians yet</string>
+    <string name="no_technicians_create_first">No technicians. Create one first.</string>
+    <string name="manage_technicians">Manage Technicians</string>
+    <string name="view_tasks">View Tasks</string>
+    <string name="total_tasks">Total Tasks</string>
+    <string name="unassigned_tasks">Unassigned</string>
+    <string name="in_progress_tasks">In Progress</string>
+    <string name="completed_tasks">Completed</string>
+    <string name="skill_repair">Repair</string>
+    <string name="skill_replacement">Replacement</string>
+    <string name="skill_both">Both</string>
+    <string name="skill_type">Skill Type</string>
+    <string name="active">Active</string>
+    <string name="inactive">Inactive</string>
+    <string name="edit_technician">Edit Technician</string>
+    <string name="disable_technician">Disable Technician</string>
+    <string name="enable_technician">Enable Technician</string>
+    <string name="assigned_count">%d assigned</string>
+    <string name="confirm_assign_task">Assign this task to %1$s?</string>
+    <string name="assign">Assign</string>
+    <string name="filter_by_status">Filter by status</string>
+    <string name="filter_by_technician">Filter by technician</string>
+    <string name="all_statuses">All statuses</string>
+    <string name="all_technicians">All technicians</string>
+    <string name="cannot_disable_technician">Cannot disable technician with active tasks</string>
+    <string name="error_name_required">Name is required</string>
+    <string name="error_phone_required">Phone is required</string>
+    <string name="add_return">Add Return</string>
+    <string name="return_date">Return Date</string>
+    <string name="return_image">Return Image</string>
     <string name="auth_subtitle">Sign in to manage cookstove repair and replacement tasks</string>
     <string name="auth_phone_number">Phone Number</string>
     <string name="auth_password">Password</string>
@@ -21,6 +70,7 @@
     <string name="auth_no_account">Don\'t have an account?</string>
     <string name="auth_sign_in">Sign In</string>
     <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
     <string name="logout">Logout</string>
 
     <!-- Welcome -->

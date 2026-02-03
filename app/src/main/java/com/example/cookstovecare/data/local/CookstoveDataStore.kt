@@ -107,14 +107,41 @@ class CookstoveDataStore(private val context: Context) {
         }
     }
 
-    suspend fun updateTaskStatus(taskId: Long, status: String) {
+    suspend fun updateTaskStatus(taskId: Long, status: String, workStartedAt: Long? = null) {
         context.dataStore.edit { editPrefs ->
             val json = editPrefs[tasksKey] ?: "[]"
             @Suppress("UNCHECKED_CAST")
             val dtos: MutableList<CookstoveTaskDto> = ((gson.fromJson(json, taskListType) as? List<CookstoveTaskDto>) ?: emptyList()).toMutableList()
             val idx = dtos.indexOfFirst { it.id == taskId }
             if (idx >= 0) {
-                dtos[idx] = dtos[idx].copy(status = status)
+                val updated = dtos[idx].copy(status = status)
+                dtos[idx] = if (workStartedAt != null) updated.copy(workStartedAt = workStartedAt) else updated
+                editPrefs[tasksKey] = gson.toJson(dtos)
+            }
+        }
+    }
+
+    suspend fun assignTaskToTechnician(taskId: Long, technicianId: Long) {
+        context.dataStore.edit { editPrefs ->
+            val json = editPrefs[tasksKey] ?: "[]"
+            @Suppress("UNCHECKED_CAST")
+            val dtos: MutableList<CookstoveTaskDto> = ((gson.fromJson(json, taskListType) as? List<CookstoveTaskDto>) ?: emptyList()).toMutableList()
+            val idx = dtos.indexOfFirst { it.id == taskId }
+            if (idx >= 0) {
+                dtos[idx] = dtos[idx].copy(status = "ASSIGNED", assignedToTechnicianId = technicianId)
+                editPrefs[tasksKey] = gson.toJson(dtos)
+            }
+        }
+    }
+
+    suspend fun updateTaskReturn(taskId: Long, returnDate: Long, returnImageUri: String?) {
+        context.dataStore.edit { editPrefs ->
+            val json = editPrefs[tasksKey] ?: "[]"
+            @Suppress("UNCHECKED_CAST")
+            val dtos: MutableList<CookstoveTaskDto> = ((gson.fromJson(json, taskListType) as? List<CookstoveTaskDto>) ?: emptyList()).toMutableList()
+            val idx = dtos.indexOfFirst { it.id == taskId }
+            if (idx >= 0) {
+                dtos[idx] = dtos[idx].copy(returnDate = returnDate, returnImageUri = returnImageUri)
                 editPrefs[tasksKey] = gson.toJson(dtos)
             }
         }
@@ -202,6 +229,10 @@ private data class CookstoveTaskDto(
     val status: String,
     val receivedProductImageUri: String? = null,
     val typeOfProcess: String? = null,
+    val assignedToTechnicianId: Long? = null,
+    val workStartedAt: Long? = null,
+    val returnDate: Long? = null,
+    val returnImageUri: String? = null,
     val createdAt: Long
 ) {
     fun toEntity() = CookstoveTask(
@@ -212,6 +243,10 @@ private data class CookstoveTaskDto(
         status = status,
         receivedProductImageUri = receivedProductImageUri,
         typeOfProcess = typeOfProcess,
+        assignedToTechnicianId = assignedToTechnicianId,
+        workStartedAt = workStartedAt,
+        returnDate = returnDate,
+        returnImageUri = returnImageUri,
         createdAt = createdAt
     )
     companion object {
@@ -223,6 +258,10 @@ private data class CookstoveTaskDto(
             status = t.status,
             receivedProductImageUri = t.receivedProductImageUri,
             typeOfProcess = t.typeOfProcess,
+            assignedToTechnicianId = t.assignedToTechnicianId,
+            workStartedAt = t.workStartedAt,
+            returnDate = t.returnDate,
+            returnImageUri = t.returnImageUri,
             createdAt = t.createdAt
         )
     }

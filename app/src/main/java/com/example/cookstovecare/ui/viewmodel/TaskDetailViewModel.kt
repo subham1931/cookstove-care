@@ -53,7 +53,8 @@ class TaskDetailViewModel(
     }
 
     val canProceedToRepairOrReplacement: Boolean
-        get() = _uiState.value.task?.statusEnum == TaskStatus.COLLECTED
+        get() = _uiState.value.task?.statusEnum == TaskStatus.COLLECTED ||
+                _uiState.value.task?.statusEnum == TaskStatus.IN_PROGRESS
 }
 
 class TaskDetailViewModelFactory(

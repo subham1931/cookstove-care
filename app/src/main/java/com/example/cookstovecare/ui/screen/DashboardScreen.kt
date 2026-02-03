@@ -103,7 +103,9 @@ fun DashboardScreen(
     val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    val inProgressTasks = tasks.filter { it.statusEnum == TaskStatus.COLLECTED }
+    val inProgressTasks = tasks.filter {
+        it.statusEnum == TaskStatus.COLLECTED || it.statusEnum == TaskStatus.ASSIGNED || it.statusEnum == TaskStatus.IN_PROGRESS
+    }
     val completedTasks = tasks.filter {
         it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
     }
@@ -427,6 +429,8 @@ private fun TaskListItem(
     }
     val statusSectionText = when (task.statusEnum) {
         TaskStatus.COLLECTED -> stringResource(R.string.status_processing)
+        TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
+        TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
         TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED ->
             stringResource(R.string.status_completed)
     }

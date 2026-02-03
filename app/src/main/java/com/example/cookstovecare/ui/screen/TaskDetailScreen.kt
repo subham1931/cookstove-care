@@ -71,6 +71,9 @@ fun TaskDetailScreen(
     viewModel: TaskDetailViewModel,
     onRepairClick: () -> Unit,
     onReplacementClick: () -> Unit,
+    onAddReturnClick: (() -> Unit)? = null,
+    onAssignTaskClick: (() -> Unit)? = null,
+    canEditCompletedReport: Boolean = true,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -193,6 +196,8 @@ fun TaskDetailScreen(
                                     label = stringResource(R.string.task_status),
                                     value = when (task.statusEnum) {
                                         TaskStatus.COLLECTED -> stringResource(R.string.status_collected)
+                                        TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
+                                        TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
                                         TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repair_completed)
                                         TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replacement_completed)
                                     },
@@ -212,7 +217,7 @@ fun TaskDetailScreen(
                                     selectedTypes = repairData.typesOfRepair.toSet()
                                 )
                             }
-                            if (completionImageUri != null || completionDate != null || (replacementData?.collectedDate != null)) {
+                            if (completionImageUri != null || completionDate != null || (replacementData?.collectedDate != null) || task.returnDate != null) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 16.dp),
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -240,12 +245,43 @@ fun TaskDetailScreen(
                                         imageUri = uri
                                     )
                                 }
+                                task.returnDate?.let { millis ->
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    OfficeDataItem(
+                                        icon = Icons.Default.CalendarToday,
+                                        label = stringResource(R.string.return_date),
+                                        value = dateFormat.format(Date(millis))
+                                    )
+                                }
+                                task.returnImageUri?.let { uri ->
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    TaskDetailImageRow(
+                                        label = stringResource(R.string.return_image),
+                                        imageUri = uri
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // Complete form button (when collected)
-                    if (viewModel.canProceedToRepairOrReplacement) {
+                    // Supervisor: Assign to Technician (when collected, before technician starts)
+                    if (onAssignTaskClick != null && task.statusEnum == TaskStatus.COLLECTED) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = onAssignTaskClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                            Text(stringResource(R.string.assign_to_technician))
+                        }
+                    }
+
+                    // Complete form button (when collected) - Technician/Field Officer only
+                    if (onAssignTaskClick == null && viewModel.canProceedToRepairOrReplacement) {
                         Spacer(modifier = Modifier.height(8.dp))
                         when (task.typeOfProcess) {
                             "REPAIRING" -> {
@@ -285,8 +321,23 @@ fun TaskDetailScreen(
                         }
                     }
 
-                    // Edit submitted report (when completed)
-                    if (repairData != null || replacementData != null) {
+                    // Add Return (when completed and return not yet added - for Field Officer only)
+                    if (onAssignTaskClick == null && (repairData != null || replacementData != null) && task.returnDate == null && onAddReturnClick != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = onAddReturnClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        ) {
+                            Text(stringResource(R.string.add_return))
+                        }
+                    }
+
+                    // Edit submitted report (when completed) - Field Officer only; Technician cannot edit
+                    if (onAssignTaskClick == null && canEditCompletedReport && (repairData != null || replacementData != null)) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = when {

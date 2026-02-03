@@ -2,6 +2,7 @@ package com.example.cookstovecare.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.data.local.AuthDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ data class AuthUiState(
     val password: String = "",
     val centerName: String = "",
     val confirmPassword: String = "",
+    val selectedRole: UserRole = UserRole.FIELD_OFFICER,
     val isLoading: Boolean = false,
     val error: AuthError? = null
 )
@@ -31,7 +33,8 @@ data class AuthUiState(
  * Supports login and sign up.
  */
 class AuthViewModel(
-    private val authDataStore: AuthDataStore
+    private val authDataStore: AuthDataStore,
+    private val repository: com.example.cookstovecare.data.repository.CookstoveRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -53,11 +56,15 @@ class AuthViewModel(
         _uiState.value = _uiState.value.copy(confirmPassword = confirmPassword, error = null)
     }
 
+    fun updateSelectedRole(role: UserRole) {
+        _uiState.value = _uiState.value.copy(selectedRole = role, error = null)
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    fun login(onSuccess: () -> Unit) {
+    fun login(onSuccess: (UserRole) -> Unit) {
         val state = _uiState.value
         val phone = state.phoneNumber.trim()
         val password = state.password.trim()
@@ -69,10 +76,12 @@ class AuthViewModel(
             else -> {
                 _uiState.value = state.copy(isLoading = true, error = null)
                 viewModelScope.launch {
-                    // Sign up will be added with backend; for now allow login without verification
-                    authDataStore.setLoggedIn(phoneNumber = phone)
+                    val techId = if (state.selectedRole == UserRole.TECHNICIAN) {
+                        repository.getTechnicianByPhoneNumber(phone)?.id
+                    } else null
+                    authDataStore.setLoggedIn(phoneNumber = phone, role = state.selectedRole, technicianId = techId)
                     _uiState.value = state.copy(isLoading = false)
-                    onSuccess()
+                    onSuccess(state.selectedRole)
                 }
             }
         }

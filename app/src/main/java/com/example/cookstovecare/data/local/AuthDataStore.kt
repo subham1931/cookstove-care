@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.data.entity.UserInfo
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -19,7 +20,8 @@ private val Context.authDataStore: DataStore<Preferences> by preferencesDataStor
 private data class RegisteredUser(
     val phoneNumber: String,
     val password: String,
-    val centerName: String? = null
+    val centerName: String? = null,
+    val role: String = UserRole.FIELD_OFFICER.name
 )
 
 /**
@@ -33,6 +35,8 @@ class AuthDataStore(private val context: Context) {
     private val isLoggedInKey = booleanPreferencesKey("is_logged_in")
     private val phoneNumberKey = stringPreferencesKey("phone_number")
     private val centerNameKey = stringPreferencesKey("center_name")
+    private val userRoleKey = stringPreferencesKey("user_role")
+    private val technicianIdKey = stringPreferencesKey("technician_id")
     private val registeredUsersKey = stringPreferencesKey("registered_users")
 
     val isLoggedIn: Flow<Boolean> = context.authDataStore.data.map { prefs ->
@@ -47,11 +51,30 @@ class AuthDataStore(private val context: Context) {
         prefs[centerNameKey] ?: ""
     }
 
-    suspend fun setLoggedIn(phoneNumber: String, centerName: String? = null) {
+    val technicianId: Flow<Long?> = context.authDataStore.data.map { prefs ->
+        prefs[technicianIdKey]?.toLongOrNull()
+    }
+
+    val userRole: Flow<UserRole> = context.authDataStore.data.map { prefs ->
+        val roleStr = prefs[userRoleKey] ?: UserRole.FIELD_OFFICER.name
+        try {
+            UserRole.valueOf(roleStr)
+        } catch (_: Exception) {
+            UserRole.FIELD_OFFICER
+        }
+    }
+
+    suspend fun setLoggedIn(phoneNumber: String, centerName: String? = null, role: UserRole = UserRole.FIELD_OFFICER, technicianId: Long? = null) {
         context.authDataStore.edit { prefs ->
             prefs[isLoggedInKey] = true
             prefs[phoneNumberKey] = phoneNumber
             prefs[centerNameKey] = centerName ?: ""
+            prefs[userRoleKey] = role.name
+            if (technicianId != null) {
+                prefs[technicianIdKey] = technicianId.toString()
+            } else {
+                prefs.remove(technicianIdKey)
+            }
         }
     }
 
@@ -60,15 +83,17 @@ class AuthDataStore(private val context: Context) {
             prefs.remove(isLoggedInKey)
             prefs.remove(phoneNumberKey)
             prefs.remove(centerNameKey)
+            prefs.remove(userRoleKey)
+            prefs.remove(technicianIdKey)
         }
     }
 
-    suspend fun registerUser(phoneNumber: String, password: String, centerName: String?): Result<Unit> {
+    suspend fun registerUser(phoneNumber: String, password: String, centerName: String?, role: UserRole = UserRole.FIELD_OFFICER): Result<Unit> {
         val users = getRegisteredUsers().toMutableList()
         if (users.any { it.phoneNumber == phoneNumber }) {
             return Result.failure(IllegalArgumentException("phone_already_registered"))
         }
-        users.add(RegisteredUser(phoneNumber = phoneNumber, password = password, centerName = centerName))
+        users.add(RegisteredUser(phoneNumber = phoneNumber, password = password, centerName = centerName, role = role.name))
         context.authDataStore.edit { prefs ->
             prefs[registeredUsersKey] = gson.toJson(users)
         }
