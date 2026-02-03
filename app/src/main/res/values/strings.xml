@@ -1,0 +1,102 @@
+<resources>
+    <string name="app_name">Cookstove Care</string>
+
+    <!-- Dashboard -->
+    <string name="create_new_task">Create New Task</string>
+    <string name="cookstove_number">Cookstove Number</string>
+    <string name="task_status">Task Status</string>
+    <string name="collection_date">Collection Date</string>
+    <string name="no_tasks">No tasks yet. Create your first task.</string>
+    <string name="loading">Loading…</string>
+    <string name="update">Update</string>
+    <string name="delete">Delete</string>
+    <string name="edit_task_title">Edit Task</string>
+    <string name="delete_task_confirm">Delete this task?</string>
+    <string name="delete_task_message">This will permanently remove the task and any associated repair or replacement data.</string>
+
+    <!-- Task Status -->
+    <string name="status_collected">Collected</string>
+    <string name="status_repair_completed">Repair Completed</string>
+    <string name="status_replacement_completed">Replacement Completed</string>
+
+    <!-- Create Task -->
+    <string name="create_task_title">Create New Task</string>
+    <string name="customer_name">Customer Name (optional)</string>
+    <string name="received_product_image">Received Product Image</string>
+    <string name="type_of_process">Type of Process</string>
+    <string name="type_repairing">Repairing</string>
+    <string name="type_replacement">Replacement</string>
+    <string name="save_task">Save Task</string>
+    <string name="update_task">Update Task</string>
+    <string name="error_empty_cookstove_number">Cookstove number is required</string>
+    <string name="error_duplicate_cookstove_number">This cookstove number already has an active task</string>
+
+    <!-- Task Action Selection -->
+    <string name="choose_action">Choose Action</string>
+    <string name="repair">Repair</string>
+    <string name="replacement">Replacement</string>
+
+    <!-- Repair Form -->
+    <string name="repair_form_title">Repair Form</string>
+    <string name="repair_completion_date">Repair Completion Date</string>
+    <string name="parts_replaced">Parts Replaced</string>
+    <string name="repair_notes">Repair Notes</string>
+    <string name="before_repair_image">Before Repair Image (required)</string>
+    <string name="received_date">Received Date</string>
+    <string name="received_image">Received Image</string>
+    <string name="submit_date">Submit Date</string>
+    <string name="submit_image">Submit Image (required)</string>
+    <string name="repaired_image">Repaired Image (required)</string>
+    <string name="after_repair_image">After Repair Image (required)</string>
+    <string name="submit">Submit</string>
+    <string name="select_image">Select Image</string>
+    <string name="error_repair_date_before_collection">Repair date cannot be before collection date</string>
+    <string name="error_parts_or_notes_required">At least one part or repair notes is required</string>
+    <string name="error_type_of_repair_required">Please select at least one type of repair</string>
+    <string name="error_images_required">Both images are required</string>
+    <string name="repair_saved">Repair data saved successfully</string>
+
+    <!-- Type of Repair -->
+    <string name="type_of_repair">Type of Repair</string>
+
+    <!-- Type of Repair options -->
+    <string name="type_repair_top_place">Top Place</string>
+    <string name="type_repair_door_repair">Door Repair</string>
+    <string name="type_repair_bottom_repair">Bottom Repair</string>
+
+    <!-- Parts options for multi-select -->
+    <string name="part_burner">Burner</string>
+    <string name="part_grate">Grate</string>
+    <string name="part_pot_support">Pot Support</string>
+    <string name="part_body">Body</string>
+    <string name="part_other">Other</string>
+
+    <!-- Replacement Form -->
+    <string name="replacement_form_title">Replacement Form</string>
+    <string name="old_cookstove_image">Old Cookstove Image (required)</string>
+    <string name="new_cookstove_image">New Cookstove Image (required)</string>
+    <string name="old_cookstove_number">Old Cookstove Number</string>
+    <string name="new_cookstove_number">New Cookstove Number</string>
+    <string name="replacement_date">Replacement Date</string>
+    <string name="error_old_new_same">Old and new cookstove numbers must be different</string>
+    <string name="error_duplicate_new_cookstove">This cookstove number is already in use</string>
+    <string name="replacement_saved">Replacement data saved successfully</string>
+
+    <!-- Task Detail -->
+    <string name="task_detail">Task Detail</string>
+    <string name="proceed_to_repair_form">Proceed to Repair Form</string>
+    <string name="proceed_to_replacement_form">Proceed to Replacement Form</string>
+    <string name="customer">Customer</string>
+    <string name="proceed_repair">Proceed to Repair</string>
+    <string name="proceed_replacement">Proceed to Replacement</string>
+    <string name="start_repairing">Start Repairing</string>
+    <string name="no_image">No image yet</string>
+    <string name="task_created_success">Task created successfully!</string>
+    <string name="task_created_success_message">Your task has been created. You can find it on the dashboard.</string>
+    <string name="choose_next_action">Choose next action</string>
+    <string name="task_completed">This task is already completed</string>
+    <string name="task_not_found">Task not found</string>
+
+    <!-- Permissions -->
+    <string name="permission_rationale">Storage permission is needed to select images</string>
+</resources>
