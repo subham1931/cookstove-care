@@ -22,11 +22,35 @@
     <string name="profile_role">Role</string>
     <string name="profile_technician_id">Technician ID</string>
     <string name="profile_status">Status</string>
+    <string name="work_summary">Work Summary</string>
+    <string name="tasks_assigned">Tasks Assigned</string>
+    <string name="change_password">Change Password</string>
+    <string name="app_language">App Language</string>
+    <string name="sync_status">Sync Status</string>
+    <string name="sync_online">Online</string>
+    <string name="sync_offline">Offline</string>
+    <string name="last_sync">Last sync: %1$s</string>
+    <string name="never_synced">Never synced</string>
+    <string name="help_support">Help &amp; Support</string>
+    <string name="app_version">App Version</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_technicians">Technicians</string>
     <string name="filter_all">All</string>
     <string name="filter_to_do">To do</string>
+    <string name="filter_tab_assigned">To Do</string>
+    <string name="filter_tab_active">Active</string>
+    <string name="filter_tab_done">Done</string>
     <string name="confirm_complete_task">Complete this task? You will need to fill the repair/replacement form.</string>
     <string name="no_assigned_tasks">No tasks assigned</string>
+    <string name="greeting_good_morning">Good morning,</string>
+    <string name="greeting_good_afternoon">Good afternoon,</string>
+    <string name="greeting_good_evening">Good evening,</string>
+    <string name="greeting_welcome">Welcome,</string>
+    <string name="empty_tasks_title">No tasks yet</string>
+    <string name="empty_tasks_subtitle">Assigned tasks will appear here</string>
     <string name="start">Start</string>
+    <string name="continue_action">Continue</string>
+    <string name="view">View</string>
     <string name="complete">Complete</string>
     <string name="technician_name">Technician Name</string>
     <string name="technician_phone">Phone / ID</string>
@@ -157,7 +181,7 @@
     <string name="error_repair_date_before_collection">Repair date cannot be before collection date</string>
     <string name="error_parts_or_notes_required">At least one part or repair notes is required</string>
     <string name="error_type_of_repair_required">Please select at least one type of repair</string>
-    <string name="error_images_required">Both images are required</string>
+    <string name="error_images_required">After repair image is required</string>
     <string name="repair_saved">Repair data saved successfully</string>
 
     <!-- Type of Repair -->

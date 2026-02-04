@@ -1,9 +1,10 @@
 package com.example.cookstovecare.ui.screen
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,17 +15,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,12 +35,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -50,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,11 +55,11 @@ import com.example.cookstovecare.data.entity.CookstoveTask
 import com.example.cookstovecare.data.entity.Technician
 import com.example.cookstovecare.data.local.AuthDataStore
 import com.example.cookstovecare.data.repository.CookstoveRepository
-import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.ui.viewmodel.TechnicianViewModel
 import com.example.cookstovecare.ui.viewmodel.TechnicianViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -140,34 +135,17 @@ fun TechnicianDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    when (selectedBottomTab) {
-                        TechnicianBottomTab.TASKS -> {
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.welcome_back),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = displayName,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                        TechnicianBottomTab.PROFILE -> {
-                            Text(
-                                text = stringResource(R.string.nav_profile),
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                        }
+            if (selectedBottomTab == TechnicianBottomTab.PROFILE) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.nav_profile),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge
+                        )
                     }
-                }
-            )
+                )
+            }
         },
         bottomBar = {
             NavigationBar {
@@ -192,83 +170,38 @@ fun TechnicianDashboardScreen(
     ) { innerPadding ->
         when (selectedBottomTab) {
             TechnicianBottomTab.TASKS -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    // Tab row - fixed width, no scroll
-                    TabRow(
-                selectedTabIndex = selectedTabIndex,
-                modifier = Modifier.fillMaxWidth(),
-                indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex])
-                    )
-                }
-            ) {
-                TechnicianFilter.entries.forEachIndexed { index, filter ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
-                        text = {
-                            Text(
-                                when (filter) {
-                                    TechnicianFilter.ALL -> stringResource(R.string.filter_all)
-                                    TechnicianFilter.TO_DO -> stringResource(R.string.filter_to_do)
-                                    TechnicianFilter.IN_PROGRESS -> stringResource(R.string.in_progress_tasks)
-                                    TechnicianFilter.COMPLETED -> stringResource(R.string.completed_tasks)
-                                }
-                            )
-                        }
-                    )
-                }
-            }
-
-            // Task list
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 16.dp, horizontal = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (filteredTasks.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.no_assigned_tasks),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                } else {
-                    items(filteredTasks, key = { it.id }) { task ->
-                        TodayTaskCard(
-                            task = task,
-                            onClick = { onTaskClick(task.id) },
-                            onStart = { viewModel.moveToInProgress(task.id) },
-                            onComplete = { completeConfirmTask = task }
-                        )
-                    }
-                }
-            }
-                }
-            }
-            TechnicianBottomTab.PROFILE -> {
-                TechnicianProfileContent(
+                TechnicianTaskScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding),
-                    technician = technician,
+                    greetingText = getGreetingText(),
                     technicianId = technicianId,
-                    phoneNumber = phoneNumber,
+                    selectedTabIndex = selectedTabIndex,
+                    onTabSelected = { selectedTabIndex = it },
+                    filteredTasks = filteredTasks,
+                    onTaskClick = onTaskClick,
+                    onStart = { viewModel.moveToInProgress(it) },
+                    onComplete = { completeConfirmTask = it }
+                )
+            }
+            TechnicianBottomTab.PROFILE -> {
+                val assignedCount = assignedTasks.count { it.statusEnum == TaskStatus.ASSIGNED }
+                val inProgressCount = assignedTasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
+                val completedCount = assignedTasks.count {
+                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+                }
+                ProfileScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    displayName = technician?.name?.takeIf { it.isNotBlank() } ?: phoneNumber.ifBlank { stringResource(R.string.nav_profile) },
+                    displayPhone = technician?.phoneNumber?.takeIf { it.isNotBlank() } ?: phoneNumber,
+                    role = com.example.cookstovecare.data.UserRole.TECHNICIAN,
+                    id = if (technicianId > 0) technicianId.toString() else null,
+                    status = technician?.let { if (it.isActive) stringResource(R.string.active) else stringResource(R.string.inactive) },
+                    tasksAssigned = assignedCount,
+                    inProgress = inProgressCount,
+                    completed = completedCount,
                     onLogout = onLogout
                 )
             }
@@ -276,268 +209,361 @@ fun TechnicianDashboardScreen(
     }
 }
 
+/** Returns greeting string based on time of day. */
 @Composable
-private fun TechnicianProfileContent(
-    modifier: Modifier = Modifier,
-    technician: Technician?,
-    technicianId: Long,
-    phoneNumber: String,
-    onLogout: () -> Unit
-) {
-    val displayName = technician?.name?.takeIf { it.isNotBlank() } ?: phoneNumber.ifBlank { stringResource(R.string.nav_profile) }
-    val displayPhone = technician?.phoneNumber?.takeIf { it.isNotBlank() } ?: phoneNumber
-    val statusText = if (technician?.isActive == true) stringResource(R.string.active) else stringResource(R.string.inactive)
+private fun getGreetingText(): String {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    return when {
+        hour in 5..11 -> stringResource(R.string.greeting_good_morning)
+        hour in 12..16 -> stringResource(R.string.greeting_good_afternoon)
+        hour in 17..21 -> stringResource(R.string.greeting_good_evening)
+        else -> stringResource(R.string.greeting_welcome)
+    }
+}
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp)
-    ) {
-        // 1. Profile header – compact, left-aligned hierarchy
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp, bottom = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Surface(
-                modifier = Modifier.size(80.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
+/**
+ * Technician Task screen: header, segmented tabs, task list.
+ * Uses existing ViewModel state for filtering.
+ */
+@Composable
+private fun TechnicianTaskScreen(
+    modifier: Modifier = Modifier,
+    greetingText: String,
+    technicianId: Long,
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    filteredTasks: List<CookstoveTask>,
+    onTaskClick: (Long) -> Unit,
+    onStart: (Long) -> Unit,
+    onComplete: (CookstoveTask) -> Unit
+) {
+    Column(modifier = modifier) {
+        GreetingHeader(
+            greetingText = greetingText,
+            technicianId = technicianId
+        )
+        TaskStatusTabs(
+            selectedIndex = selectedTabIndex,
+            onTabSelected = onTabSelected
+        )
+        if (filteredTasks.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val initial = displayName.take(1).uppercase().ifBlank { "" }
-                    if (initial.isNotEmpty()) {
-                        Text(
-                            text = initial,
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
+                EmptyTaskState()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredTasks, key = { it.id }) { task ->
+                    TechnicianTaskCard(
+                        task = task,
+                        onClick = { onTaskClick(task.id) },
+                        onStart = { onStart(task.id) },
+                        onComplete = { onComplete(task) }
+                    )
                 }
             }
-            Spacer(modifier = Modifier.size(12.dp))
+        }
+    }
+}
+
+/** Header: greeting, role, technician ID. Left aligned, 16–20dp padding. */
+@Composable
+private fun GreetingHeader(
+    greetingText: String,
+    technicianId: Long
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Text(
+            text = greetingText,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = stringResource(R.string.role_technician),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        if (technicianId > 0) {
             Text(
-                text = displayName,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.size(4.dp))
-            Text(
-                text = displayPhone.ifBlank { "—" },
+                text = stringResource(R.string.profile_technician_id) + " $technicianId",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
 
-        // 2. Info card – Role, Technician ID, Status
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ProfileInfoRow(
-                    label = stringResource(R.string.profile_role),
-                    value = stringResource(R.string.role_technician)
-                )
-                ProfileInfoRow(
-                    label = stringResource(R.string.profile_technician_id),
-                    value = if (technicianId > 0) technicianId.toString() else "—"
-                )
-                ProfileInfoRow(
-                    label = stringResource(R.string.profile_status),
-                    value = statusText
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // 3. Logout – OutlinedButton, error color
-        OutlinedButton(
-            onClick = onLogout,
+/** Segmented-control style tabs. Rounded container, no underline. */
+@Composable
+private fun TaskStatusTabs(
+    selectedIndex: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error
-            )
+                .horizontalScroll(rememberScrollState())
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Logout,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.logout))
+            TechnicianFilter.entries.forEachIndexed { index, filter ->
+                val isSelected = selectedIndex == index
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(2.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        androidx.compose.ui.graphics.Color.Transparent
+                    },
+                    onClick = { onTabSelected(index) }
+                ) {
+                    Text(
+                        text = when (filter) {
+                            TechnicianFilter.ALL -> stringResource(R.string.filter_all)
+                            TechnicianFilter.TO_DO -> stringResource(R.string.filter_tab_assigned)
+                            TechnicianFilter.IN_PROGRESS -> stringResource(R.string.filter_tab_active)
+                            TechnicianFilter.COMPLETED -> stringResource(R.string.filter_tab_done)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
         }
     }
 }
 
-@Composable
-private fun ProfileInfoRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
+// ========== UI REFACTOR: Technician Task Card ==========
+// Redesigned card: Top row (cookstove + status chip), Middle row (task type + date), Bottom row (primary action).
+// Material 3 compliant, 16dp corners, no dividers, completed cards de-emphasized.
 
+/** Main task card composable. Layout: cookstove + status | task type + date | primary action button. */
 @Composable
-private fun TodayTaskCard(
+private fun TechnicianTaskCard(
     task: CookstoveTask,
     onClick: () -> Unit,
     onStart: () -> Unit,
     onComplete: () -> Unit
 ) {
-    val dateFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val displayTime = dateFormat.format(Date(task.collectionDate))
-    val taskType = when (task.typeOfProcess) {
-        "REPLACEMENT" -> stringResource(R.string.type_replacement)
-        else -> stringResource(R.string.type_repairing)
-    }
-    val statusRes = when (task.statusEnum) {
-        TaskStatus.ASSIGNED -> R.string.filter_to_do
-        TaskStatus.IN_PROGRESS -> R.string.in_progress_tasks
-        else -> R.string.completed_tasks
-    }
-    val statusColor = when (task.statusEnum) {
-        TaskStatus.ASSIGNED -> MaterialTheme.colorScheme.primary
-        TaskStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
-        else -> SuccessGreen
-    }
+    val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    val collectionDateText = dateFormat.format(Date(task.collectionDate))
+    val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED || task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCompleted) {
+                MaterialTheme.colorScheme.surfaceContainerHighest
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         onClick = onClick
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Top row: Cookstove number (left), Status chip (right)
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = when (task.typeOfProcess) {
-                        "REPLACEMENT" -> MaterialTheme.colorScheme.tertiaryContainer
-                        else -> MaterialTheme.colorScheme.primaryContainer
-                    }
-                ) {
-                    Icon(
-                        imageVector = if (task.typeOfProcess == "REPLACEMENT") Icons.Default.SwapHoriz else Icons.Default.Build,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .size(24.dp),
-                        tint = when (task.typeOfProcess) {
-                            "REPLACEMENT" -> MaterialTheme.colorScheme.onTertiaryContainer
-                            else -> MaterialTheme.colorScheme.onPrimaryContainer
-                        }
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = task.cookstoveNumber,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = taskType,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        modifier = Modifier.padding(top = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.AccessTime,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = displayTime,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                Text(
+                    text = task.cookstoveNumber,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                TaskStatusChip(status = task.statusEnum)
             }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Middle row: Task type chip, Spacer, Collection date
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = statusColor.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        text = stringResource(statusRes),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = statusColor,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-                when (task.statusEnum) {
-                    TaskStatus.ASSIGNED -> {
-                        TextButton(onClick = { onStart() }) {
-                            Text(stringResource(R.string.start), color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    TaskStatus.IN_PROGRESS -> {
-                        TextButton(onClick = { onComplete() }) {
-                            Text(stringResource(R.string.complete), color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    else -> { }
-                }
+                TaskTypeChip(typeOfProcess = task.typeOfProcess)
+                Text(
+                    text = collectionDateText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+            // Bottom row: Primary action button
+            TaskPrimaryActionButton(
+                status = task.statusEnum,
+                onStart = onStart,
+                onComplete = onComplete,
+                onView = onClick
+            )
         }
     }
 }
+
+/** Status chip: Assigned / In Progress / Completed. Uses Material color scheme. */
+@Composable
+private fun TaskStatusChip(status: TaskStatus) {
+    val (labelRes, containerColor, contentColor) = when (status) {
+        TaskStatus.ASSIGNED -> Triple(
+            R.string.status_assigned,
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        TaskStatus.IN_PROGRESS -> Triple(
+            R.string.in_progress_tasks,
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> Triple(
+            R.string.completed_tasks,
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+            MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TaskStatus.COLLECTED -> Triple(
+            R.string.status_assigned,
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = containerColor
+    ) {
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Medium,
+            color = contentColor,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+/** Task type chip: Repair / Replacement. */
+@Composable
+private fun TaskTypeChip(typeOfProcess: String?) {
+    val (labelRes, containerColor, contentColor) = when (typeOfProcess) {
+        "REPLACEMENT" -> Triple(
+            R.string.type_replacement,
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        else -> Triple(
+            R.string.type_repairing,
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = containerColor
+    ) {
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+/** Primary action: Assigned→Start, In Progress→Continue, Completed→View. Filled for active, tonal for completed. */
+@Composable
+private fun TaskPrimaryActionButton(
+    status: TaskStatus,
+    onStart: () -> Unit,
+    onComplete: () -> Unit,
+    onView: () -> Unit
+) {
+    when (status) {
+        TaskStatus.ASSIGNED -> {
+            Button(
+                onClick = onStart,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.start))
+            }
+        }
+        TaskStatus.IN_PROGRESS -> {
+            Button(
+                onClick = onComplete,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.complete))
+            }
+        }
+        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> {
+            FilledTonalButton(
+                onClick = onView,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.view))
+            }
+        }
+        else -> { /* COLLECTED: no primary action for technician */ }
+    }
+}
+
+/** Empty state: icon, title, subtitle. Centered, muted colors. */
+@Composable
+private fun EmptyTaskState() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(32.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.AssignmentTurnedIn,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        )
+        Text(
+            text = stringResource(R.string.empty_tasks_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = stringResource(R.string.empty_tasks_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+        )
+    }
+}
+

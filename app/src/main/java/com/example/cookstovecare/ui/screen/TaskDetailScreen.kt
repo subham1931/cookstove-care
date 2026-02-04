@@ -127,7 +127,8 @@ fun TaskDetailScreen(
                     val repairData = uiState.repairData
                     val replacementData = uiState.replacementData
                     val receivedImageUri = when {
-                        repairData != null -> repairData.beforeRepairImageUri
+                        repairData != null -> repairData.beforeRepairImageUri.takeIf { it.isNotBlank() }
+                            ?: task.receivedProductImageUri
                         replacementData != null -> replacementData.oldCookstoveImageUri
                         task.receivedProductImageUri != null -> task.receivedProductImageUri
                         else -> null

@@ -12,7 +12,7 @@ data class RepairData(
     val partsReplacedRaw: String,
     val repairNotes: String? = null,
     val typesOfRepairRaw: String = "",
-    val beforeRepairImageUri: String,
+    val beforeRepairImageUri: String = "",
     val afterRepairImageUri: String,
     val createdAt: Long = System.currentTimeMillis()
 ) {

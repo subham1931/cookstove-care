@@ -120,7 +120,7 @@ class CookstoveRepository(
         if (!hasPartsOrNotes && !hasTypesOfRepair) {
             return Result.failure(IllegalArgumentException("parts_or_notes_or_type_required"))
         }
-        if (beforeRepairImageUri.isBlank() || afterRepairImageUri.isBlank()) {
+        if (afterRepairImageUri.isBlank()) {
             return Result.failure(IllegalArgumentException("images_required"))
         }
         val repairData = RepairData(

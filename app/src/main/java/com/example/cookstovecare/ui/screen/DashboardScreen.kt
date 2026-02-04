@@ -26,8 +26,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,6 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -66,6 +69,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.TaskStatus
+import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.data.entity.CookstoveTask
 import com.example.cookstovecare.data.local.AuthDataStore
 import com.example.cookstovecare.data.repository.CookstoveRepository
@@ -78,9 +82,15 @@ import com.example.cookstovecare.ui.viewmodel.EditTaskViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 
+/** Field Officer bottom nav tabs */
+private enum class FieldOfficerTab(val titleRes: Int) {
+    TASKS(R.string.nav_tasks),
+    PROFILE(R.string.nav_profile)
+}
+
 /**
- * Dashboard screen inspired by modern task management UI.
- * Header with greeting, progress card, In Progress section, Task Groups.
+ * Field Officer dashboard: Tasks | Profile bottom nav.
+ * Material 3, 8dp spacing grid.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +104,9 @@ fun DashboardScreen(
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
+    val centerName by authDataStore.centerName.collectAsState(initial = "")
+    val userRole by authDataStore.userRole.collectAsState(initial = UserRole.FIELD_OFFICER)
+    var selectedBottomTab by remember { mutableStateOf(FieldOfficerTab.TASKS) }
     var showCreateTaskModal by remember { mutableStateOf(false) }
     var showTaskCreatedSuccess by remember { mutableStateOf(false) }
     var editTaskId by remember(initialEditTaskId) { mutableStateOf<Long?>(initialEditTaskId) }
@@ -111,30 +124,53 @@ fun DashboardScreen(
     }
     var selectedTab by remember { mutableStateOf(0) } // 0 = In Progress, 1 = Completed
 
+    val displayName = centerName.ifBlank { phoneNumber }.ifBlank { stringResource(R.string.nav_profile) }
+
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateTaskModal = true },
-                content = {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_new_task))
-                }
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            item {
-                DashboardHeader(
-                    displayName = phoneNumber.ifBlank { "Repair Center" },
-                    onLogout = onLogout
+            if (selectedBottomTab == FieldOfficerTab.TASKS) {
+                FloatingActionButton(
+                    onClick = { showCreateTaskModal = true },
+                    content = {
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_new_task))
+                    }
                 )
             }
+        },
+        bottomBar = {
+            NavigationBar {
+                FieldOfficerTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = selectedBottomTab == tab,
+                        onClick = { selectedBottomTab = tab },
+                        icon = {
+                            Icon(
+                                imageVector = when (tab) {
+                                    FieldOfficerTab.TASKS -> Icons.Default.Assignment
+                                    FieldOfficerTab.PROFILE -> Icons.Default.Person
+                                },
+                                contentDescription = stringResource(tab.titleRes)
+                            )
+                        },
+                        label = { Text(stringResource(tab.titleRes)) }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        when (selectedBottomTab) {
+            FieldOfficerTab.TASKS -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(horizontal = 20.dp),
+                    contentPadding = PaddingValues(vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    item {
+                        DashboardHeader(displayName = displayName)
+                    }
 
             item {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -273,6 +309,27 @@ fun DashboardScreen(
                     }
                 }
             }
+                }
+            }
+            FieldOfficerTab.PROFILE -> {
+                val assignedCount = tasks.count { it.statusEnum == TaskStatus.ASSIGNED }
+                val inProgressCount = tasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
+                val completedCount = tasks.count {
+                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+                }
+                ProfileScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    displayName = displayName,
+                    displayPhone = phoneNumber,
+                    role = userRole,
+                    tasksAssigned = assignedCount,
+                    inProgress = inProgressCount,
+                    completed = completedCount,
+                    onLogout = onLogout
+                )
+            }
         }
 
         if (showCreateTaskModal) {
@@ -344,46 +401,36 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardHeader(displayName: String, onLogout: () -> Unit) {
+private fun DashboardHeader(displayName: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = displayName.take(1).uppercase().ifBlank { "R" },
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = stringResource(R.string.dashboard_hello),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = displayName.take(1).uppercase().ifBlank { "R" },
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
-        IconButton(onClick = onLogout) {
-            Icon(
-                Icons.AutoMirrored.Filled.Logout,
-                contentDescription = stringResource(R.string.logout),
-                tint = MaterialTheme.colorScheme.onSurface
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(
+                text = stringResource(R.string.dashboard_hello),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = displayName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
             )
         }
     }

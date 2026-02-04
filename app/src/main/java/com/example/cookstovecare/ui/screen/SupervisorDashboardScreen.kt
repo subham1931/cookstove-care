@@ -18,10 +18,15 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,6 +38,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -40,12 +48,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.TaskStatus
+import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.data.local.AuthDataStore
 import com.example.cookstovecare.data.repository.CookstoveRepository
 import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.ui.viewmodel.SupervisorViewModel
 import com.example.cookstovecare.ui.viewmodel.SupervisorViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
+
+/** Supervisor bottom nav tabs */
+private enum class SupervisorTab(val titleRes: Int) {
+    DASHBOARD(R.string.nav_dashboard),
+    PROFILE(R.string.nav_profile)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +74,11 @@ fun SupervisorDashboardScreen(
     onLogout: () -> Unit
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
+    val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
+    val centerName by authDataStore.centerName.collectAsState(initial = "")
+    val userRole by authDataStore.userRole.collectAsState(initial = UserRole.SUPERVISOR)
+    var selectedBottomTab by remember { mutableStateOf(SupervisorTab.DASHBOARD) }
+    val displayName = centerName.ifBlank { phoneNumber }.ifBlank { stringResource(R.string.nav_profile) }
     val totalTasks = tasks.size
     val unassignedCount = tasks.count { it.statusEnum == TaskStatus.COLLECTED }
     val inProgressCount = tasks.count { it.statusEnum == TaskStatus.ASSIGNED || it.statusEnum == TaskStatus.IN_PROGRESS }
@@ -68,23 +88,45 @@ fun SupervisorDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.role_supervisor), fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = onTechniciansList) {
-                        Icon(Icons.Default.Person, contentDescription = stringResource(R.string.manage_technicians))
+            if (selectedBottomTab == SupervisorTab.DASHBOARD) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.role_supervisor), fontWeight = FontWeight.Bold) },
+                    actions = {
+                        IconButton(onClick = onTechniciansList) {
+                            Icon(Icons.Default.Person, contentDescription = stringResource(R.string.manage_technicians))
+                        }
+                        IconButton(onClick = onCreateTechnician) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = stringResource(R.string.create_technician))
+                        }
                     }
-                    IconButton(onClick = onCreateTechnician) {
-                        Icon(Icons.Default.PersonAdd, contentDescription = stringResource(R.string.create_technician))
-                    }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = stringResource(R.string.logout))
-                    }
+                )
+            } else {
+                TopAppBar(title = { Text(stringResource(R.string.nav_profile), fontWeight = FontWeight.Bold) })
+            }
+        },
+        bottomBar = {
+            NavigationBar {
+                SupervisorTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = selectedBottomTab == tab,
+                        onClick = { selectedBottomTab = tab },
+                        icon = {
+                            Icon(
+                                imageVector = when (tab) {
+                                    SupervisorTab.DASHBOARD -> Icons.Default.Dashboard
+                                    SupervisorTab.PROFILE -> Icons.Default.Person
+                                },
+                                contentDescription = stringResource(tab.titleRes)
+                            )
+                        },
+                        label = { Text(stringResource(tab.titleRes)) }
+                    )
                 }
-            )
+            }
         }
     ) { innerPadding ->
-        LazyColumn(
+        when (selectedBottomTab) {
+            SupervisorTab.DASHBOARD -> LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -161,6 +203,26 @@ fun SupervisorDashboardScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.manage_technicians))
                 }
+            }
+        }
+            SupervisorTab.PROFILE -> {
+                val assignedCount = tasks.count { it.statusEnum == TaskStatus.ASSIGNED }
+                val inProgressCount = tasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
+                val completedCount = tasks.count {
+                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+                }
+                ProfileScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    displayName = displayName,
+                    displayPhone = phoneNumber,
+                    role = userRole,
+                    tasksAssigned = assignedCount,
+                    inProgress = inProgressCount,
+                    completed = completedCount,
+                    onLogout = onLogout
+                )
             }
         }
     }
