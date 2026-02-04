@@ -34,6 +34,11 @@
     <string name="profile_technician_id">Technician ID</string>
     <string name="profile_status">Status</string>
     <string name="work_summary">Work Summary</string>
+    <string name="summary_of_your_work">Summary of Your Work</string>
+    <string name="your_current_task_progress">Your current task progress</string>
+    <string name="lets_tackle_tasks">Let\'s tackle your tasks</string>
+    <string name="filter_all">All</string>
+    <string name="filter_done">Done</string>
     <string name="select_date">Select a date</string>
     <string name="tasks_assigned">Tasks Assigned</string>
     <string name="change_password">Change Password</string>
@@ -49,7 +54,6 @@
     <string name="app_version">App Version</string>
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_technicians">Technicians</string>
-    <string name="filter_all">All</string>
     <string name="filter_to_do">To do</string>
     <string name="filter_tab_assigned">To Do</string>
     <string name="filter_tab_active">Active</string>
@@ -146,6 +150,7 @@
     <string name="task_status">Task Status</string>
     <string name="collection_date">Collection Date</string>
     <string name="no_tasks">No tasks yet. Create your first task.</string>
+    <string name="no_tasks_supervisor">No tasks yet</string>
     <string name="loading">Loading…</string>
     <string name="update">Update</string>
     <string name="delete">Delete</string>

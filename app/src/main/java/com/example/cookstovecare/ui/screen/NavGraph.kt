@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -20,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.cookstovecare.CookstoveCareApplication
+import com.example.cookstovecare.R
 import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.navigation.NavRoutes
 import com.example.cookstovecare.ui.viewmodel.AddReturnViewModelFactory
@@ -136,8 +138,12 @@ fun CookstoveCareNavGraph(
                         val viewModel: com.example.cookstovecare.ui.viewmodel.SupervisorTaskListViewModel = viewModel(
                             factory = SupervisorTaskListViewModelFactory(repository)
                         )
+                        val centerName by app.authDataStore.centerName.collectAsState(initial = "")
+                        val phoneNumber by app.authDataStore.phoneNumber.collectAsState(initial = "")
+                        val displayName = centerName.ifBlank { phoneNumber }.ifBlank { stringResource(R.string.nav_profile) }
                         SupervisorTaskListScreen(
                             viewModel = viewModel,
+                            displayName = displayName,
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
                             onAssignTask = { taskId -> navController.navigate(NavRoutes.assignTask(taskId)) },
                             onBack = { navController.popBackStack() }
@@ -209,7 +215,7 @@ fun CookstoveCareNavGraph(
                             canEditCompletedReport = userRole != UserRole.TECHNICIAN,
                             onBack = {
                                 if (userRole == UserRole.SUPERVISOR) {
-                                    navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", 1)
+                                    navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", 0)
                                 }
                                 if (!navController.popBackStack()) {
                                     navController.navigate(backToDashboard) {

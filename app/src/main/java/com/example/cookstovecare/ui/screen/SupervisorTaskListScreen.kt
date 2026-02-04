@@ -1,39 +1,37 @@
 package com.example.cookstovecare.ui.screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -44,163 +42,253 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.TaskStatus
-import androidx.compose.material3.Surface
-import androidx.compose.ui.graphics.Color
-import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.data.entity.CookstoveTask
-import com.example.cookstovecare.data.entity.Technician
+import com.example.cookstovecare.ui.theme.AuthGradientStart
+import com.example.cookstovecare.ui.theme.AuthGradientStartDark
 import com.example.cookstovecare.ui.viewmodel.SupervisorTaskListViewModel
-import com.example.cookstovecare.ui.viewmodel.SupervisorTaskListViewModelFactory
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
+
+/** Filter mode for task list: Todo (new/unassigned) -> In Progress (assigned) -> Done (completed) */
+private enum class FilterMode {
+    TODO,
+    IN_PROGRESS,
+    DONE
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SupervisorTaskListScreen(
     viewModel: SupervisorTaskListViewModel,
+    displayName: String,
     onTaskClick: (Long) -> Unit,
     onAssignTask: (Long) -> Unit = {},
     onBack: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
-    val technicians by viewModel.technicians.collectAsState(initial = emptyList())
-    var statusFilter by remember { mutableStateOf<TaskStatus?>(null) }
-    var technicianFilterId by remember { mutableStateOf<Long?>(null) }
-    var statusMenuExpanded by remember { mutableStateOf(false) }
-    var technicianMenuExpanded by remember { mutableStateOf(false) }
+    var filterMode by remember { mutableStateOf(FilterMode.TODO) }
+    val isDark = isSystemInDarkTheme()
+    val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
 
-    val filteredTasks = tasks.filter { task ->
-        val statusMatch = statusFilter == null || task.statusEnum == statusFilter
-        val techMatch = technicianFilterId == null || task.assignedToTechnicianId == technicianFilterId
-        statusMatch && techMatch
+    // Todo: new tasks (COLLECTED, unassigned) | In Progress: assigned/working | Done: completed
+    val todoCount = tasks.count { it.statusEnum == TaskStatus.COLLECTED }
+    val inProgressCount = tasks.count {
+        it.statusEnum == TaskStatus.ASSIGNED || it.statusEnum == TaskStatus.IN_PROGRESS
+    }
+    val doneCount = tasks.count {
+        it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
     }
 
+    val filteredTasks = when (filterMode) {
+        FilterMode.TODO -> tasks.filter { it.statusEnum == TaskStatus.COLLECTED }
+        FilterMode.IN_PROGRESS -> tasks.filter {
+            it.statusEnum == TaskStatus.ASSIGNED || it.statusEnum == TaskStatus.IN_PROGRESS
+        }
+        FilterMode.DONE -> tasks.filter {
+            it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+        }
+    }
+
+    val greetingText = getGreetingText()
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.nav_tasks), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    onBack?.let { back ->
-                        IconButton(onClick = back) {
+            if (onBack != null) {
+                TopAppBar(
+                    title = { },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(
+                            RoundedCornerShape(
+                                bottomStart = 32.dp,
+                                bottomEnd = 32.dp
+                            )
+                        )
+                        .background(headerColor)
                 ) {
-                    Box {
-                        FilterChip(
-                            selected = statusFilter != null,
-                            onClick = { statusMenuExpanded = true },
-                            label = {
-                                Text(
-                                    text = statusFilter?.let { stringResource(statusLabel(it)) }
-                                        ?: stringResource(R.string.filter_by_status)
-                                )
-                            }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 24.dp)
+                    ) {
+                        Text(
+                            text = greetingText,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White
                         )
-                        DropdownMenu(
-                            expanded = statusMenuExpanded,
-                            onDismissRequest = { statusMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.all_statuses)) },
-                                onClick = {
-                                    statusFilter = null
-                                    statusMenuExpanded = false
-                                }
-                            )
-                            TaskStatus.entries.forEach { status ->
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(statusLabel(status))) },
-                                    onClick = {
-                                        statusFilter = status
-                                        statusMenuExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    Box {
-                        FilterChip(
-                            selected = technicianFilterId != null,
-                            onClick = { technicianMenuExpanded = true },
-                            label = {
-                                Text(
-                                    text = technicianFilterId?.let { id ->
-                                        technicians.find { it.id == id }?.name ?: stringResource(R.string.filter_by_technician)
-                                    } ?: stringResource(R.string.filter_by_technician)
-                                )
-                            }
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
-                        DropdownMenu(
-                            expanded = technicianMenuExpanded,
-                            onDismissRequest = { technicianMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.all_technicians)) },
-                                onClick = {
-                                    technicianFilterId = null
-                                    technicianMenuExpanded = false
-                                }
-                            )
-                            technicians.forEach { tech ->
-                                DropdownMenuItem(
-                                    text = { Text(tech.name) },
-                                    onClick = {
-                                        technicianFilterId = tech.id
-                                        technicianMenuExpanded = false
-                                    }
-                                )
-                            }
-                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.lets_tackle_tasks),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
                     }
                 }
             }
 
-            if (filteredTasks.isEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 16.dp)
                     ) {
-                        Text(
-                            text = stringResource(R.string.no_tasks),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(32.dp)
+                        SegmentedButton(
+                            selected = filterMode == FilterMode.TODO,
+                            onClick = { filterMode = FilterMode.TODO },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                            modifier = Modifier.weight(1f),
+                            icon = {},
+                            label = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.filter_to_do),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (filterMode == FilterMode.TODO) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "$todoCount",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (filterMode == FilterMode.TODO) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        )
+                        SegmentedButton(
+                            selected = filterMode == FilterMode.IN_PROGRESS,
+                            onClick = { filterMode = FilterMode.IN_PROGRESS },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                            modifier = Modifier.weight(1f),
+                            icon = {},
+                            label = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.in_progress_tasks),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (filterMode == FilterMode.IN_PROGRESS) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "$inProgressCount",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (filterMode == FilterMode.IN_PROGRESS) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        )
+                        SegmentedButton(
+                            selected = filterMode == FilterMode.DONE,
+                            onClick = { filterMode = FilterMode.DONE },
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                            modifier = Modifier.weight(1f),
+                            icon = {},
+                            label = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.filter_done),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (filterMode == FilterMode.DONE) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "$doneCount",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (filterMode == FilterMode.DONE) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         )
                     }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (filteredTasks.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.no_tasks_supervisor),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    )
                 }
             } else {
                 items(filteredTasks) { task ->
                     SupervisorTaskCard(
                         task = task,
-                        technicians = technicians,
                         dateFormat = dateFormat,
-                        onClick = { onTaskClick(task.id) }
+                        onClick = { onTaskClick(task.id) },
+                        modifier = Modifier.padding(horizontal = 20.dp)
                     )
                 }
             }
@@ -211,14 +299,11 @@ fun SupervisorTaskListScreen(
 @Composable
 private fun SupervisorTaskCard(
     task: CookstoveTask,
-    technicians: List<Technician>,
     dateFormat: SimpleDateFormat,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val assignedName = task.assignedToTechnicianId?.let { id ->
-        technicians.find { it.id == id }?.name
-    }
     val typeText = task.typeOfProcess?.let { type ->
         when (type) {
             "REPAIRING" -> stringResource(R.string.type_repairing)
@@ -228,7 +313,7 @@ private fun SupervisorTaskCard(
     } ?: ""
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 130.dp)
             .clickable(onClick = onClick),
@@ -243,7 +328,6 @@ private fun SupervisorTaskCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Square thumbnail image on left
             Box(
                 modifier = Modifier
                     .size(96.dp)
@@ -269,7 +353,6 @@ private fun SupervisorTaskCard(
                     )
                 }
             }
-            // Content on right: cookstove number, type, assigned status
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -287,40 +370,18 @@ private fun SupervisorTaskCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                if (assignedName != null) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = SuccessGreen
-                    ) {
-                        Text(
-                            text = stringResource(R.string.assigned_to_tech, assignedName),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                } else {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFF9800)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.not_assigned),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
             }
         }
     }
 }
 
-private fun statusLabel(status: TaskStatus): Int = when (status) {
-    TaskStatus.COLLECTED -> R.string.status_collected
-    TaskStatus.ASSIGNED -> R.string.status_assigned
-    TaskStatus.IN_PROGRESS -> R.string.status_processing
-    TaskStatus.REPAIR_COMPLETED -> R.string.status_repair_completed
-    TaskStatus.REPLACEMENT_COMPLETED -> R.string.status_replacement_completed
+@Composable
+private fun getGreetingText(): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when {
+        hour in 5..11 -> stringResource(R.string.greeting_good_morning)
+        hour in 12..16 -> stringResource(R.string.greeting_good_afternoon)
+        hour in 17..21 -> stringResource(R.string.greeting_good_evening)
+        else -> stringResource(R.string.greeting_welcome)
+    }
 }

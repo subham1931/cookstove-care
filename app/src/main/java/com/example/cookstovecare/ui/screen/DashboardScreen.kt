@@ -2,6 +2,7 @@ package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -64,6 +64,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -73,6 +74,8 @@ import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.data.entity.CookstoveTask
 import com.example.cookstovecare.data.local.AuthDataStore
 import com.example.cookstovecare.data.repository.CookstoveRepository
+import com.example.cookstovecare.ui.theme.AuthGradientStart
+import com.example.cookstovecare.ui.theme.AuthGradientStartDark
 import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.ui.viewmodel.CreateTaskViewModel
 import com.example.cookstovecare.ui.viewmodel.CreateTaskViewModelFactory
@@ -161,23 +164,62 @@ fun DashboardScreen(
     ) { innerPadding ->
         when (selectedBottomTab) {
             FieldOfficerTab.TASKS -> {
+                val isDark = isSystemInDarkTheme()
+                val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
+                val greetingText = getGreetingText()
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(horizontal = 20.dp),
-                    contentPadding = PaddingValues(vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                        .padding(innerPadding),
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        DashboardHeader(displayName = displayName)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(
+                                    RoundedCornerShape(
+                                        bottomStart = 32.dp,
+                                        bottomEnd = 32.dp
+                                    )
+                                )
+                                .background(headerColor)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 24.dp)
+                            ) {
+                                Text(
+                                    text = greetingText,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = displayName,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(R.string.lets_tackle_tasks),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                            }
+                        }
                     }
 
-            item {
-                Spacer(modifier = Modifier.height(20.dp))
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                    item {
+                        SingleChoiceSegmentedButtonRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .padding(top = 16.dp)
+                        ) {
                     SegmentedButton(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
@@ -253,63 +295,61 @@ fun DashboardScreen(
                 }
             }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
-            if (selectedTab == 0) {
-                if (inProgressTasks.isNotEmpty()) {
-                    items(inProgressTasks, key = { it.id }) { task ->
-                        TaskListItem(
-                            task = task,
-                            onClick = { onTaskClick(task.id) },
-                            onUpdateClick = { editTaskId = task.id },
-                            onDeleteClick = { viewModel.deleteTask(task.id) }
-                        )
-                    }
-                } else {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.no_tasks),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    if (selectedTab == 0) {
+                        if (inProgressTasks.isNotEmpty()) {
+                            items(inProgressTasks, key = { it.id }) { task ->
+                                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                    TaskListItem(
+                                        task = task,
+                                        onClick = { onTaskClick(task.id) },
+                                        onUpdateClick = { editTaskId = task.id },
+                                        onDeleteClick = { viewModel.deleteTask(task.id) }
+                                    )
+                                }
+                            }
+                        } else {
+                            item {
+                                Text(
+                                    text = stringResource(R.string.no_tasks),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        if (completedTasks.isNotEmpty()) {
+                            items(completedTasks, key = { it.id }) { task ->
+                                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                    TaskListItem(
+                                        task = task,
+                                        onClick = { onTaskClick(task.id) },
+                                        onUpdateClick = { editTaskId = task.id },
+                                        onDeleteClick = { viewModel.deleteTask(task.id) }
+                                    )
+                                }
+                            }
+                        } else {
+                            item {
+                                Text(
+                                    text = stringResource(R.string.no_tasks),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp)
+                                )
+                            }
                         }
                     }
-                }
-            } else {
-                if (completedTasks.isNotEmpty()) {
-                    items(completedTasks, key = { it.id }) { task ->
-                        TaskListItem(
-                            task = task,
-                            onClick = { onTaskClick(task.id) },
-                            onUpdateClick = { editTaskId = task.id },
-                            onDeleteClick = { viewModel.deleteTask(task.id) }
-                        )
-                    }
-                } else {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.no_tasks),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
                 }
             }
             FieldOfficerTab.PROFILE -> {
@@ -403,38 +443,13 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardHeader(displayName: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = displayName.take(1).uppercase().ifBlank { "R" },
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(
-                text = stringResource(R.string.dashboard_hello),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = displayName,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-        }
+private fun getGreetingText(): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when {
+        hour in 5..11 -> stringResource(R.string.greeting_good_morning)
+        hour in 12..16 -> stringResource(R.string.greeting_good_afternoon)
+        hour in 17..21 -> stringResource(R.string.greeting_good_evening)
+        else -> stringResource(R.string.greeting_welcome)
     }
 }
 
