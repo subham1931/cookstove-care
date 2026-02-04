@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
@@ -52,13 +53,19 @@ import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.data.local.AuthDataStore
 import com.example.cookstovecare.data.repository.CookstoveRepository
 import com.example.cookstovecare.ui.theme.SuccessGreen
+import com.example.cookstovecare.ui.viewmodel.SupervisorTaskListViewModel
+import com.example.cookstovecare.ui.viewmodel.SupervisorTaskListViewModelFactory
 import com.example.cookstovecare.ui.viewmodel.SupervisorViewModel
 import com.example.cookstovecare.ui.viewmodel.SupervisorViewModelFactory
+import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModel
+import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-/** Supervisor bottom nav tabs */
+/** Supervisor bottom nav tabs: Dashboard -> Tasks -> Technicians -> Profile */
 private enum class SupervisorTab(val titleRes: Int) {
     DASHBOARD(R.string.nav_dashboard),
+    TASKS(R.string.nav_tasks),
+    TECHNICIANS(R.string.nav_technicians),
     PROFILE(R.string.nav_profile)
 }
 
@@ -68,9 +75,9 @@ fun SupervisorDashboardScreen(
     viewModel: SupervisorViewModel,
     repository: CookstoveRepository,
     authDataStore: AuthDataStore,
-    onViewTasks: () -> Unit,
-    onTechniciansList: () -> Unit,
+    onTaskClick: (Long) -> Unit,
     onCreateTechnician: () -> Unit,
+    onEditTechnician: (Long) -> Unit,
     onLogout: () -> Unit
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
@@ -88,20 +95,19 @@ fun SupervisorDashboardScreen(
 
     Scaffold(
         topBar = {
-            if (selectedBottomTab == SupervisorTab.DASHBOARD) {
-                TopAppBar(
+            when (selectedBottomTab) {
+                SupervisorTab.DASHBOARD -> TopAppBar(
                     title = { Text(stringResource(R.string.role_supervisor), fontWeight = FontWeight.Bold) },
                     actions = {
-                        IconButton(onClick = onTechniciansList) {
-                            Icon(Icons.Default.Person, contentDescription = stringResource(R.string.manage_technicians))
-                        }
                         IconButton(onClick = onCreateTechnician) {
                             Icon(Icons.Default.PersonAdd, contentDescription = stringResource(R.string.create_technician))
                         }
                     }
                 )
-            } else {
-                TopAppBar(title = { Text(stringResource(R.string.nav_profile), fontWeight = FontWeight.Bold) })
+                SupervisorTab.TASKS, SupervisorTab.TECHNICIANS -> { /* Child screens provide their own TopAppBar */ }
+                SupervisorTab.PROFILE -> TopAppBar(
+                    title = { Text(stringResource(R.string.nav_profile), fontWeight = FontWeight.Bold) }
+                )
             }
         },
         bottomBar = {
@@ -114,6 +120,8 @@ fun SupervisorDashboardScreen(
                             Icon(
                                 imageVector = when (tab) {
                                     SupervisorTab.DASHBOARD -> Icons.Default.Dashboard
+                                    SupervisorTab.TASKS -> Icons.Default.Assignment
+                                    SupervisorTab.TECHNICIANS -> Icons.Default.Group
                                     SupervisorTab.PROFILE -> Icons.Default.Person
                                 },
                                 contentDescription = stringResource(tab.titleRes)
@@ -126,89 +134,38 @@ fun SupervisorDashboardScreen(
         }
     ) { innerPadding ->
         when (selectedBottomTab) {
-            SupervisorTab.DASHBOARD -> LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SummaryCard(
-                            title = stringResource(R.string.total_tasks),
-                            count = totalTasks,
-                            icon = Icons.Default.Assignment,
-                            modifier = Modifier.weight(1f)
-                        )
-                        SummaryCard(
-                            title = stringResource(R.string.unassigned_tasks),
-                            count = unassignedCount,
-                            icon = Icons.Default.Schedule,
-                            accentColor = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        SummaryCard(
-                            title = stringResource(R.string.in_progress_tasks),
-                            count = inProgressCount,
-                            icon = Icons.Default.Schedule,
-                            accentColor = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        SummaryCard(
-                            title = stringResource(R.string.completed_tasks),
-                            count = completedCount,
-                            icon = Icons.Default.CheckCircle,
-                            accentColor = SuccessGreen,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+            SupervisorTab.DASHBOARD -> DashboardTabContent(
+                modifier = Modifier.padding(innerPadding),
+                totalTasks = totalTasks,
+                unassignedCount = unassignedCount,
+                inProgressCount = inProgressCount,
+                completedCount = completedCount
+            )
+            SupervisorTab.TASKS -> {
+                val taskListViewModel: SupervisorTaskListViewModel = viewModel(
+                    factory = SupervisorTaskListViewModelFactory(repository)
+                )
+                SupervisorTaskListScreen(
+                    viewModel = taskListViewModel,
+                    onTaskClick = onTaskClick,
+                    onBack = null
+                )
             }
-
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onViewTasks,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Filled.Assignment, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.view_tasks))
-                }
+            SupervisorTab.TECHNICIANS -> {
+                val techniciansViewModel: TechniciansListViewModel = viewModel(
+                    factory = TechniciansListViewModelFactory(repository)
+                )
+                TechniciansListScreen(
+                    viewModel = techniciansViewModel,
+                    onBack = null,
+                    onCreateTechnician = onCreateTechnician,
+                    onEditTechnician = onEditTechnician
+                )
             }
-
-            item {
-                Button(
-                    onClick = onTechniciansList,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.manage_technicians))
-                }
-            }
-        }
             SupervisorTab.PROFILE -> {
                 val assignedCount = tasks.count { it.statusEnum == TaskStatus.ASSIGNED }
-                val inProgressCount = tasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
-                val completedCount = tasks.count {
+                val inProgressCountProfile = tasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
+                val completedCountProfile = tasks.count {
                     it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
                 }
                 ProfileScreen(
@@ -219,10 +176,69 @@ fun SupervisorDashboardScreen(
                     displayPhone = phoneNumber,
                     role = userRole,
                     tasksAssigned = assignedCount,
-                    inProgress = inProgressCount,
-                    completed = completedCount,
+                    inProgress = inProgressCountProfile,
+                    completed = completedCountProfile,
                     onLogout = onLogout
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardTabContent(
+    modifier: Modifier = Modifier,
+    totalTasks: Int,
+    unassignedCount: Int,
+    inProgressCount: Int,
+    completedCount: Int
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SummaryCard(
+                        title = stringResource(R.string.total_tasks),
+                        count = totalTasks,
+                        icon = Icons.Default.Assignment,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = stringResource(R.string.unassigned_tasks),
+                        count = unassignedCount,
+                        icon = Icons.Default.Schedule,
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SummaryCard(
+                        title = stringResource(R.string.in_progress_tasks),
+                        count = inProgressCount,
+                        icon = Icons.Default.Schedule,
+                        accentColor = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SummaryCard(
+                        title = stringResource(R.string.completed_tasks),
+                        count = completedCount,
+                        icon = Icons.Default.CheckCircle,
+                        accentColor = SuccessGreen,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }

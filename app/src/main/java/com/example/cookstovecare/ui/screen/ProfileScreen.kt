@@ -54,6 +54,7 @@ fun ProfileScreen(
     tasksAssigned: Int = 0,
     inProgress: Int = 0,
     completed: Int = 0,
+    showWorkSummary: Boolean = true,
     isOnline: Boolean = true,
     lastSyncTime: String? = null,
     onLogout: () -> Unit,
@@ -86,11 +87,13 @@ fun ProfileScreen(
                 roleSecondary = roleSecondary
             )
 
-            WorkSummaryCard(
-                tasksAssigned = tasksAssigned,
-                inProgress = inProgress,
-                completed = completed
-            )
+            if (showWorkSummary) {
+                WorkSummaryCard(
+                    tasksAssigned = tasksAssigned,
+                    inProgress = inProgress,
+                    completed = completed
+                )
+            }
 
             ProfileActionList(
                 isOnline = isOnline,

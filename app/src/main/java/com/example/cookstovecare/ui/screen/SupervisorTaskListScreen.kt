@@ -51,7 +51,7 @@ import java.util.Locale
 fun SupervisorTaskListScreen(
     viewModel: SupervisorTaskListViewModel,
     onTaskClick: (Long) -> Unit,
-    onBack: () -> Unit
+    onBack: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
     val technicians by viewModel.technicians.collectAsState(initial = emptyList())
@@ -73,8 +73,10 @@ fun SupervisorTaskListScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.view_tasks), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    onBack?.let { back ->
+                        IconButton(onClick = back) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
                     }
                 }
             )

@@ -47,7 +47,7 @@ import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModel
 @Composable
 fun TechniciansListScreen(
     viewModel: TechniciansListViewModel,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onCreateTechnician: () -> Unit,
     onEditTechnician: (Long) -> Unit
 ) {
@@ -76,8 +76,10 @@ fun TechniciansListScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.manage_technicians), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    onBack?.let { back ->
+                        IconButton(onClick = back) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
                     }
                 },
                 actions = {

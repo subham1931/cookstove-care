@@ -23,6 +23,7 @@
     <string name="profile_technician_id">Technician ID</string>
     <string name="profile_status">Status</string>
     <string name="work_summary">Work Summary</string>
+    <string name="select_date">Select a date</string>
     <string name="tasks_assigned">Tasks Assigned</string>
     <string name="change_password">Change Password</string>
     <string name="app_language">App Language</string>

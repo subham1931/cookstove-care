@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.AssignmentTurnedIn
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -74,6 +75,7 @@ private enum class TechnicianFilter(val statuses: List<TaskStatus>) {
 /** Bottom navigation tabs */
 private enum class TechnicianBottomTab(val titleRes: Int) {
     TASKS(R.string.nav_tasks),
+    WORK_SUMMARY(R.string.work_summary),
     PROFILE(R.string.nav_profile)
 }
 
@@ -135,8 +137,17 @@ fun TechnicianDashboardScreen(
 
     Scaffold(
         topBar = {
-            if (selectedBottomTab == TechnicianBottomTab.PROFILE) {
-                TopAppBar(
+            when (selectedBottomTab) {
+                TechnicianBottomTab.WORK_SUMMARY -> TopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.work_summary),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
+                )
+                TechnicianBottomTab.PROFILE -> TopAppBar(
                     title = {
                         Text(
                             text = stringResource(R.string.nav_profile),
@@ -145,6 +156,7 @@ fun TechnicianDashboardScreen(
                         )
                     }
                 )
+                else -> { /* Tasks: no top bar, greeting in content */ }
             }
         },
         bottomBar = {
@@ -157,6 +169,7 @@ fun TechnicianDashboardScreen(
                             Icon(
                                 imageVector = when (tab) {
                                     TechnicianBottomTab.TASKS -> Icons.Default.Assignment
+                                    TechnicianBottomTab.WORK_SUMMARY -> Icons.Default.Assessment
                                     TechnicianBottomTab.PROFILE -> Icons.Default.Person
                                 },
                                 contentDescription = stringResource(tab.titleRes)
@@ -184,6 +197,16 @@ fun TechnicianDashboardScreen(
                     onComplete = { completeConfirmTask = it }
                 )
             }
+            TechnicianBottomTab.WORK_SUMMARY -> {
+                TechnicianWorkSummaryScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    assignedTasks = assignedTasks,
+                    repository = repository,
+                    onTaskClick = onTaskClick
+                )
+            }
             TechnicianBottomTab.PROFILE -> {
                 val assignedCount = assignedTasks.count { it.statusEnum == TaskStatus.ASSIGNED }
                 val inProgressCount = assignedTasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
@@ -202,6 +225,7 @@ fun TechnicianDashboardScreen(
                     tasksAssigned = assignedCount,
                     inProgress = inProgressCount,
                     completed = completedCount,
+                    showWorkSummary = false,
                     onLogout = onLogout
                 )
             }

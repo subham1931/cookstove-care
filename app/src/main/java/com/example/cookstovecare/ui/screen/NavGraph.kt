@@ -122,9 +122,9 @@ fun CookstoveCareNavGraph(
                             viewModel = viewModel,
                             repository = repository,
                             authDataStore = app.authDataStore,
-                            onViewTasks = { navController.navigate(NavRoutes.SUPERVISOR_TASK_LIST) },
-                            onTechniciansList = { navController.navigate(NavRoutes.TECHNICIANS_LIST) },
+                            onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
                             onCreateTechnician = { navController.navigate(NavRoutes.CREATE_TECHNICIAN) },
+                            onEditTechnician = { id -> navController.navigate(NavRoutes.editTechnician(id)) },
                             onLogout = { scope.launch { app.authDataStore.logout() } }
                         )
                     }
@@ -312,12 +312,7 @@ fun CookstoveCareNavGraph(
                         )
                         CreateTechnicianScreen(
                             viewModel = viewModel,
-                            onSuccess = {
-                                navController.navigate(NavRoutes.TECHNICIANS_LIST) {
-                                    popUpTo(NavRoutes.TECHNICIANS_LIST) { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            },
+                            onSuccess = { navController.popBackStack() },
                             onBack = { navController.popBackStack() }
                         )
                     }
