@@ -191,6 +191,7 @@ fun CookstoveCareNavGraph(
                         }
                         TaskDetailScreen(
                             viewModel = viewModel,
+                            userRole = userRole,
                             onRepairClick = { navController.navigate(NavRoutes.repairForm(taskId)) },
                             onReplacementClick = { navController.navigate(NavRoutes.replacementForm(taskId)) },
                             onAddReturnClick = if (userRole == UserRole.FIELD_OFFICER) {

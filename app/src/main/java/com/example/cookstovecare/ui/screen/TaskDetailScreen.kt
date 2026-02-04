@@ -2,11 +2,14 @@ package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -44,18 +47,25 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.TaskStatus
+import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.ui.viewmodel.TaskDetailViewModel
 import java.text.SimpleDateFormat
@@ -69,6 +79,7 @@ import java.util.Locale
 @Composable
 fun TaskDetailScreen(
     viewModel: TaskDetailViewModel,
+    userRole: UserRole = UserRole.FIELD_OFFICER,
     onRepairClick: () -> Unit,
     onReplacementClick: () -> Unit,
     onAddReturnClick: (() -> Unit)? = null,
@@ -153,113 +164,208 @@ fun TaskDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
-                            // Received image
-                            TaskDetailImageRow(
-                                label = stringResource(R.string.received_image),
-                                imageUri = receivedImageUri
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                            // Office data — modern info grid
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OfficeDataItem(
-                                    icon = Icons.Default.Tag,
-                                    label = stringResource(R.string.cookstove_number),
-                                    value = task.cookstoveNumber
-                                )
-                                task.customerName?.let { name ->
-                                    OfficeDataItem(
-                                        icon = Icons.Default.Person,
-                                        label = stringResource(R.string.customer),
-                                        value = name
-                                    )
-                                }
-                                task.typeOfProcess?.let { type ->
-                                    OfficeDataItem(
-                                        icon = Icons.Default.Build,
-                                        label = stringResource(R.string.task_type),
-                                        value = when (type) {
-                                            "REPAIRING" -> stringResource(R.string.type_repairing)
-                                            "REPLACEMENT" -> stringResource(R.string.type_replacement)
-                                            else -> type
-                                        }
-                                    )
-                                }
-                                OfficeDataItem(
-                                    icon = Icons.Default.CalendarToday,
-                                    label = stringResource(R.string.collection_date),
-                                    value = dateFormat.format(Date(task.collectionDate))
-                                )
-                                OfficeDataItem(
-                                    icon = Icons.AutoMirrored.Filled.Assignment,
-                                    label = stringResource(R.string.task_status),
-                                    value = when (task.statusEnum) {
-                                        TaskStatus.COLLECTED -> stringResource(R.string.status_collected)
-                                        TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
-                                        TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
-                                        TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repair_completed)
-                                        TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replacement_completed)
-                                    },
-                                    isStatus = true,
-                                    statusEnum = task.statusEnum
-                                )
-                            }
+                            val isTechnician = userRole == UserRole.TECHNICIAN
+                            val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED || task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
 
-                            // When completed: add type of repair done (for repair tasks), completion date, and image
-                            if (repairData != null) {
+                            if (isTechnician) {
+                                // Technician view: simplified layout by phase
+                                if (isCompleted) {
+                                    // Completed: Received image, Cookstove number, Task type, Type of repairing, Repair completion date, Image
+                                    TaskDetailImageRow(
+                                        label = stringResource(R.string.received_image),
+                                        imageUri = receivedImageUri
+                                    )
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Tag,
+                                            label = stringResource(R.string.cookstove_number),
+                                            value = task.cookstoveNumber
+                                        )
+                                        task.typeOfProcess?.let { type ->
+                                            OfficeDataItem(
+                                                icon = Icons.Default.Build,
+                                                label = stringResource(R.string.task_type),
+                                                value = when (type) {
+                                                    "REPAIRING" -> stringResource(R.string.type_repairing)
+                                                    "REPLACEMENT" -> stringResource(R.string.type_replacement)
+                                                    else -> type
+                                                }
+                                            )
+                                        }
+                                    }
+                                    if (repairData != null) {
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 16.dp),
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                        )
+                                        TaskDetailTypeOfRepairCard(
+                                            label = stringResource(R.string.type_of_repair),
+                                            selectedTypes = repairData.typesOfRepair.toSet()
+                                        )
+                                    }
+                                    completionDate?.let { millis ->
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 16.dp),
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                        )
+                                        OfficeDataItem(
+                                            icon = Icons.Default.CalendarToday,
+                                            label = if (repairData != null) stringResource(R.string.repair_completion_date)
+                                            else stringResource(R.string.replacement_date),
+                                            value = dateFormat.format(Date(millis))
+                                        )
+                                    }
+                                    completionImageUri?.let { uri ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        TaskDetailImageRow(
+                                            label = stringResource(R.string.after_repair_image_label),
+                                            imageUri = uri
+                                        )
+                                    }
+                                } else {
+                                    // Assigned / To Do / Active: Received image, Number, Date, Task type
+                                    TaskDetailImageRow(
+                                        label = stringResource(R.string.received_image),
+                                        imageUri = receivedImageUri
+                                    )
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Tag,
+                                            label = stringResource(R.string.cookstove_number),
+                                            value = task.cookstoveNumber
+                                        )
+                                        OfficeDataItem(
+                                            icon = Icons.Default.CalendarToday,
+                                            label = stringResource(R.string.collection_date),
+                                            value = dateFormat.format(Date(task.collectionDate))
+                                        )
+                                        task.typeOfProcess?.let { type ->
+                                            OfficeDataItem(
+                                                icon = Icons.Default.Build,
+                                                label = stringResource(R.string.task_type),
+                                                value = when (type) {
+                                                    "REPAIRING" -> stringResource(R.string.type_repairing)
+                                                    "REPLACEMENT" -> stringResource(R.string.type_replacement)
+                                                    else -> type
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Non-technician: full layout (original)
+                                TaskDetailImageRow(
+                                    label = stringResource(R.string.received_image),
+                                    imageUri = receivedImageUri
+                                )
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 16.dp),
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                 )
-                                TaskDetailTypeOfRepairCard(
-                                    label = stringResource(R.string.type_of_repair),
-                                    selectedTypes = repairData.typesOfRepair.toSet()
-                                )
-                            }
-                            if (completionImageUri != null || completionDate != null || (replacementData?.collectedDate != null) || task.returnDate != null) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 16.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
-                                replacementData?.collectedDate?.let { millis ->
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    OfficeDataItem(
+                                        icon = Icons.Default.Tag,
+                                        label = stringResource(R.string.cookstove_number),
+                                        value = task.cookstoveNumber
+                                    )
+                                    task.customerName?.let { name ->
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Person,
+                                            label = stringResource(R.string.customer),
+                                            value = name
+                                        )
+                                    }
+                                    task.typeOfProcess?.let { type ->
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Build,
+                                            label = stringResource(R.string.task_type),
+                                            value = when (type) {
+                                                "REPAIRING" -> stringResource(R.string.type_repairing)
+                                                "REPLACEMENT" -> stringResource(R.string.type_replacement)
+                                                else -> type
+                                            }
+                                        )
+                                    }
                                     OfficeDataItem(
                                         icon = Icons.Default.CalendarToday,
                                         label = stringResource(R.string.collection_date),
-                                        value = dateFormat.format(Date(millis))
+                                        value = dateFormat.format(Date(task.collectionDate))
                                     )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                }
-                                completionDate?.let { millis ->
                                     OfficeDataItem(
-                                        icon = Icons.Default.CalendarToday,
-                                        label = if (repairData != null) stringResource(R.string.repair_completion_date)
-                                        else stringResource(R.string.replacement_date),
-                                        value = dateFormat.format(Date(millis))
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                }
-                                completionImageUri?.let { uri ->
-                                    TaskDetailImageRow(
-                                        label = stringResource(R.string.completion_image),
-                                        imageUri = uri
-                                    )
-                                }
-                                task.returnDate?.let { millis ->
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    OfficeDataItem(
-                                        icon = Icons.Default.CalendarToday,
-                                        label = stringResource(R.string.return_date),
-                                        value = dateFormat.format(Date(millis))
+                                        icon = Icons.AutoMirrored.Filled.Assignment,
+                                        label = stringResource(R.string.task_status),
+                                        value = when (task.statusEnum) {
+                                            TaskStatus.COLLECTED -> stringResource(R.string.status_collected)
+                                            TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
+                                            TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
+                                            TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repair_completed)
+                                            TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replacement_completed)
+                                        },
+                                        isStatus = true,
+                                        statusEnum = task.statusEnum
                                     )
                                 }
-                                task.returnImageUri?.let { uri ->
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    TaskDetailImageRow(
-                                        label = stringResource(R.string.return_image),
-                                        imageUri = uri
+                                if (repairData != null) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                     )
+                                    TaskDetailTypeOfRepairCard(
+                                        label = stringResource(R.string.type_of_repair),
+                                        selectedTypes = repairData.typesOfRepair.toSet()
+                                    )
+                                }
+                                if (completionImageUri != null || completionDate != null || (replacementData?.collectedDate != null) || task.returnDate != null) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                    replacementData?.collectedDate?.let { millis ->
+                                        OfficeDataItem(
+                                            icon = Icons.Default.CalendarToday,
+                                            label = stringResource(R.string.collection_date),
+                                            value = dateFormat.format(Date(millis))
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                    }
+                                    completionDate?.let { millis ->
+                                        OfficeDataItem(
+                                            icon = Icons.Default.CalendarToday,
+                                            label = if (repairData != null) stringResource(R.string.repair_completion_date)
+                                            else stringResource(R.string.replacement_date),
+                                            value = dateFormat.format(Date(millis))
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                    }
+                                    completionImageUri?.let { uri ->
+                                        TaskDetailImageRow(
+                                            label = stringResource(R.string.completion_image),
+                                            imageUri = uri
+                                        )
+                                    }
+                                    task.returnDate?.let { millis ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        OfficeDataItem(
+                                            icon = Icons.Default.CalendarToday,
+                                            label = stringResource(R.string.return_date),
+                                            value = dateFormat.format(Date(millis))
+                                        )
+                                    }
+                                    task.returnImageUri?.let { uri ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        TaskDetailImageRow(
+                                            label = stringResource(R.string.return_image),
+                                            imageUri = uri
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -411,6 +517,44 @@ private fun TaskDetailTypeOfRepairCard(
 
 @Composable
 private fun TaskDetailImageRow(label: String, imageUri: String?) {
+    var showFullImage by remember { mutableStateOf(false) }
+    val hasImage = imageUri != null && imageUri.isNotBlank()
+
+    if (showFullImage && hasImage) {
+        Dialog(
+            onDismissRequest = { showFullImage = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { showFullImage = false }
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(imageUri)
+                            .crossfade(true)
+                            .build()
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = label,
@@ -420,13 +564,16 @@ private fun TaskDetailImageRow(label: String, imageUri: String?) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp),
+                .height(160.dp)
+                .then(
+                    if (hasImage) Modifier.clickable { showFullImage = true } else Modifier
+                ),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
-            if (imageUri != null && imageUri.isNotBlank()) {
+            if (hasImage) {
                 Image(
                     painter = rememberAsyncImagePainter(
                         model = ImageRequest.Builder(LocalContext.current)
