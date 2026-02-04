@@ -92,7 +92,8 @@ fun TechnicianDashboardScreen(
     onTaskClick: (Long) -> Unit,
     onCompleteRepair: (Long) -> Unit,
     onCompleteReplacement: (Long) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onClearAllData: (() -> Unit)? = null
 ) {
     val assignedTasks by viewModel.assignedTasks.collectAsState(initial = emptyList())
     val technician by viewModel.technicianDetails.collectAsState(initial = null)
@@ -226,7 +227,8 @@ fun TechnicianDashboardScreen(
                     inProgress = inProgressCount,
                     completed = completedCount,
                     showWorkSummary = false,
-                    onLogout = onLogout
+                    onLogout = onLogout,
+                    onClearAllData = onClearAllData
                 )
             }
         }

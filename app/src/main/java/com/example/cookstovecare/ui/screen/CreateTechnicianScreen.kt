@@ -2,7 +2,6 @@ package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,18 +15,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
-import com.example.cookstovecare.data.TechnicianSkillType
 import com.example.cookstovecare.ui.viewmodel.CreateTechnicianViewModel
 import com.example.cookstovecare.ui.viewmodel.CreateTechnicianViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -71,21 +67,6 @@ fun CreateTechnicianScreen(
                 label = { Text(stringResource(R.string.technician_phone)) },
                 modifier = Modifier.fillMaxWidth()
             )
-            TechnicianSkillTypeSelector(
-                selected = uiState.skillType,
-                onSelect = { viewModel.updateSkillType(it) }
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.active), style = MaterialTheme.typography.bodyLarge)
-                Switch(
-                    checked = uiState.isActive,
-                    onCheckedChange = { viewModel.updateIsActive(it) }
-                )
-            }
             uiState.error?.let { err ->
                 Text(
                     text = when (err) {
@@ -103,37 +84,6 @@ fun CreateTechnicianScreen(
                 enabled = !uiState.isLoading
             ) {
                 Text(stringResource(R.string.create_technician))
-            }
-        }
-    }
-}
-
-@Composable
-fun TechnicianSkillTypeSelector(
-    selected: TechnicianSkillType,
-    onSelect: (TechnicianSkillType) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.skill_type),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf(
-                TechnicianSkillType.REPAIR to R.string.skill_repair,
-                TechnicianSkillType.REPLACEMENT to R.string.skill_replacement,
-                TechnicianSkillType.BOTH to R.string.skill_both
-            ).forEach { (type, labelRes) ->
-                val isSelected = selected == type
-                androidx.compose.material3.FilterChip(
-                    selected = isSelected,
-                    onClick = { onSelect(type) },
-                    label = { Text(stringResource(labelRes)) }
-                )
             }
         }
     }

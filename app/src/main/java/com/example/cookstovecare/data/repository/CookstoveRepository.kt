@@ -62,6 +62,16 @@ class CookstoveRepository(
         dataStore.deleteTask(taskId)
     }
 
+    /** Removes all completed tasks and their repair/replacement data from storage. */
+    suspend fun clearCompletedData() {
+        dataStore.clearCompletedData()
+    }
+
+    /** Removes all tasks and their repair/replacement data. Use for starting fresh. */
+    suspend fun clearAllData() {
+        dataStore.clearAllData()
+    }
+
     suspend fun updateTaskStatus(taskId: Long, status: String) {
         dataStore.updateTaskStatus(taskId, status)
     }

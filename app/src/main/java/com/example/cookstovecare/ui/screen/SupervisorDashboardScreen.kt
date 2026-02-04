@@ -47,7 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.example.cookstovecare.R
+import com.example.cookstovecare.navigation.NavRoutes
 import com.example.cookstovecare.data.TaskStatus
 import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.data.local.AuthDataStore
@@ -75,16 +77,25 @@ fun SupervisorDashboardScreen(
     viewModel: SupervisorViewModel,
     repository: CookstoveRepository,
     authDataStore: AuthDataStore,
+    navController: NavController,
     onTaskClick: (Long) -> Unit,
     onCreateTechnician: () -> Unit,
-    onEditTechnician: (Long) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onClearAllData: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
     val centerName by authDataStore.centerName.collectAsState(initial = "")
     val userRole by authDataStore.userRole.collectAsState(initial = UserRole.SUPERVISOR)
     var selectedBottomTab by remember { mutableStateOf(SupervisorTab.DASHBOARD) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.get<Int>("returnTab")?.let { tabOrdinal ->
+            if (tabOrdinal in SupervisorTab.entries.indices) {
+                selectedBottomTab = SupervisorTab.entries[tabOrdinal]
+            }
+            navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.remove<Int>("returnTab")
+        }
+    }
     val displayName = centerName.ifBlank { phoneNumber }.ifBlank { stringResource(R.string.nav_profile) }
     val totalTasks = tasks.size
     val unassignedCount = tasks.count { it.statusEnum == TaskStatus.COLLECTED }
@@ -148,6 +159,7 @@ fun SupervisorDashboardScreen(
                 SupervisorTaskListScreen(
                     viewModel = taskListViewModel,
                     onTaskClick = onTaskClick,
+                    onAssignTask = { taskId -> navController.navigate(NavRoutes.assignTask(taskId)) },
                     onBack = null
                 )
             }
@@ -159,7 +171,10 @@ fun SupervisorDashboardScreen(
                     viewModel = techniciansViewModel,
                     onBack = null,
                     onCreateTechnician = onCreateTechnician,
-                    onEditTechnician = onEditTechnician
+                    onTechnicianClick = { id ->
+                        navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", SupervisorTab.TECHNICIANS.ordinal)
+                        navController.navigate(NavRoutes.technicianDetail(id))
+                    }
                 )
             }
             SupervisorTab.PROFILE -> {
@@ -178,7 +193,10 @@ fun SupervisorDashboardScreen(
                     tasksAssigned = assignedCount,
                     inProgress = inProgressCountProfile,
                     completed = completedCountProfile,
-                    onLogout = onLogout
+                    showWorkSummary = false,
+                    showSyncStatus = false,
+                    onLogout = onLogout,
+                    onClearAllData = onClearAllData
                 )
             }
         }

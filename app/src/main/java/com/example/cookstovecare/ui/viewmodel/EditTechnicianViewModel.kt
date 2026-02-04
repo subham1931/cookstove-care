@@ -3,7 +3,6 @@ package com.example.cookstovecare.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.cookstovecare.data.TechnicianSkillType
 import com.example.cookstovecare.data.entity.Technician
 import com.example.cookstovecare.data.repository.CookstoveRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,8 +14,6 @@ data class EditTechnicianUiState(
     val technician: Technician? = null,
     val name: String = "",
     val phoneNumber: String = "",
-    val skillType: TechnicianSkillType = TechnicianSkillType.BOTH,
-    val isActive: Boolean = true,
     val error: String? = null,
     val isLoading: Boolean = false
 )
@@ -40,9 +37,7 @@ class EditTechnicianViewModel(
                 _uiState.value = _uiState.value.copy(
                     technician = it,
                     name = it.name,
-                    phoneNumber = it.phoneNumber,
-                    skillType = it.skillType,
-                    isActive = it.isActive
+                    phoneNumber = it.phoneNumber
                 )
             }
         }
@@ -54,14 +49,6 @@ class EditTechnicianViewModel(
 
     fun updatePhoneNumber(phone: String) {
         _uiState.value = _uiState.value.copy(phoneNumber = phone, error = null)
-    }
-
-    fun updateSkillType(skillType: TechnicianSkillType) {
-        _uiState.value = _uiState.value.copy(skillType = skillType, error = null)
-    }
-
-    fun updateIsActive(isActive: Boolean) {
-        _uiState.value = _uiState.value.copy(isActive = isActive, error = null)
     }
 
     fun save(onSuccess: () -> Unit) {
@@ -80,36 +67,18 @@ class EditTechnicianViewModel(
             val updatedTech = tech.copy(
                 name = state.name.trim(),
                 phoneNumber = state.phoneNumber.trim(),
-                skillType = state.skillType,
-                isActive = state.isActive
+                skillType = tech.skillType, // preserve; no longer editable
+                isActive = tech.isActive // preserve current status; change only via detail page
             )
-            if (tech.isActive && !state.isActive) {
-                repository.setTechnicianActive(technicianId, false).fold(
-                    onSuccess = {
-                        repository.updateTechnician(updatedTech)
-                        _uiState.value = state.copy(isLoading = false)
-                        onSuccess()
-                    },
-                    onFailure = { e ->
-                        _uiState.value = state.copy(
-                            isLoading = false,
-                            error = if (e.message == "cannot_disable_technician_with_active_tasks")
-                                "cannot_disable_technician_with_active_tasks"
-                            else e.message ?: "Error"
-                        )
-                    }
-                )
-            } else {
-                repository.updateTechnician(updatedTech).fold(
-                    onSuccess = {
-                        _uiState.value = state.copy(isLoading = false)
-                        onSuccess()
-                    },
-                    onFailure = { e ->
-                        _uiState.value = state.copy(isLoading = false, error = e.message ?: "Error")
-                    }
-                )
-            }
+            repository.updateTechnician(updatedTech).fold(
+                onSuccess = {
+                    _uiState.value = state.copy(isLoading = false)
+                    onSuccess()
+                },
+                onFailure = { e ->
+                    _uiState.value = state.copy(isLoading = false, error = e.message ?: "Error")
+                }
+            )
         }
     }
 }

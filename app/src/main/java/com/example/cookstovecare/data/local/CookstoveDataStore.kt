@@ -200,6 +200,37 @@ class CookstoveDataStore(private val context: Context) {
         }
     }
 
+    /** Removes all tasks and their repair/replacement data. Use for starting fresh. */
+    suspend fun clearAllData() {
+        context.dataStore.edit { editPrefs ->
+            editPrefs[tasksKey] = "[]"
+            editPrefs[repairsKey] = "{}"
+            editPrefs[replacementsKey] = "{}"
+        }
+    }
+
+    /** Removes all completed tasks (REPAIR_COMPLETED, REPLACEMENT_COMPLETED) and their repair/replacement data. */
+    suspend fun clearCompletedData() {
+        context.dataStore.edit { editPrefs ->
+            val tasksJson = editPrefs[tasksKey] ?: "[]"
+            @Suppress("UNCHECKED_CAST")
+            val dtos: MutableList<CookstoveTaskDto> = ((gson.fromJson(tasksJson, taskListType) as? List<CookstoveTaskDto>) ?: emptyList()).toMutableList()
+            val completedIds = dtos.filter { it.status == "REPAIR_COMPLETED" || it.status == "REPLACEMENT_COMPLETED" }.map { it.id }
+            dtos.removeAll { it.status == "REPAIR_COMPLETED" || it.status == "REPLACEMENT_COMPLETED" }
+            editPrefs[tasksKey] = gson.toJson(dtos)
+            val repairsJson = editPrefs[repairsKey] ?: "{}"
+            @Suppress("UNCHECKED_CAST")
+            val repairMap: MutableMap<String, RepairDataDto> = ((gson.fromJson(repairsJson, repairMapType) as? Map<String, RepairDataDto>) ?: emptyMap()).toMutableMap()
+            completedIds.forEach { repairMap.remove(it.toString()) }
+            editPrefs[repairsKey] = gson.toJson(repairMap)
+            val replacementsJson = editPrefs[replacementsKey] ?: "{}"
+            @Suppress("UNCHECKED_CAST")
+            val replacementMap: MutableMap<String, ReplacementDataDto> = ((gson.fromJson(replacementsJson, replacementMapType) as? Map<String, ReplacementDataDto>) ?: emptyMap()).toMutableMap()
+            completedIds.forEach { replacementMap.remove(it.toString()) }
+            editPrefs[replacementsKey] = gson.toJson(replacementMap)
+        }
+    }
+
     suspend fun deleteTask(taskId: Long) {
         context.dataStore.edit { editPrefs ->
             val tasksJson = editPrefs[tasksKey] ?: "[]"

@@ -2,17 +2,28 @@ package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -38,6 +49,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.TaskStatus
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
+import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.data.entity.CookstoveTask
 import com.example.cookstovecare.data.entity.Technician
 import com.example.cookstovecare.ui.viewmodel.SupervisorTaskListViewModel
@@ -51,6 +65,7 @@ import java.util.Locale
 fun SupervisorTaskListScreen(
     viewModel: SupervisorTaskListViewModel,
     onTaskClick: (Long) -> Unit,
+    onAssignTask: (Long) -> Unit = {},
     onBack: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
@@ -71,7 +86,7 @@ fun SupervisorTaskListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.view_tasks), fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.nav_tasks), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     onBack?.let { back ->
                         IconButton(onClick = back) {
@@ -200,59 +215,104 @@ private fun SupervisorTaskCard(
     dateFormat: SimpleDateFormat,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val assignedName = task.assignedToTechnicianId?.let { id ->
         technicians.find { it.id == id }?.name
     }
+    val typeText = task.typeOfProcess?.let { type ->
+        when (type) {
+            "REPAIRING" -> stringResource(R.string.type_repairing)
+            "REPLACEMENT" -> stringResource(R.string.type_replacement)
+            else -> type
+        }
+    } ?: ""
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 130.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = task.cookstoveNumber,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            task.customerName?.let { name ->
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Square thumbnail image on left
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (task.receivedProductImageUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(task.receivedProductImageUri)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AddPhotoAlternate,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
             }
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            // Content on right: cookstove number, type, assigned status
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = dateFormat.format(Date(task.collectionDate)),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = task.cookstoveNumber,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = when (task.statusEnum) {
-                        TaskStatus.COLLECTED -> stringResource(R.string.status_collected)
-                        TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
-                        TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
-                        TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repair_completed)
-                        TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replacement_completed)
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                if (typeText.isNotEmpty()) {
+                    Text(
+                        text = typeText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                if (assignedName != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = SuccessGreen
+                    ) {
+                        Text(
+                            text = stringResource(R.string.assigned_to_tech, assignedName),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFF9800)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.not_assigned),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
             }
-            Text(
-                text = assignedName ?: stringResource(R.string.unassigned_tasks),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
         }
     }
 }

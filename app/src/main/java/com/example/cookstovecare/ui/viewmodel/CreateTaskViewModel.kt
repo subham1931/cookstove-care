@@ -58,6 +58,7 @@ class CreateTaskViewModel(
     fun saveTask(onError: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            repository.clearCompletedData()
             val state = _uiState.value
             val result = repository.createTask(
                 cookstoveNumber = state.cookstoveNumber,

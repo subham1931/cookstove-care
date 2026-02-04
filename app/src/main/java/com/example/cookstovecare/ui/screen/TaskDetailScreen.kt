@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -89,6 +90,10 @@ fun TaskDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
 
     Scaffold(
         topBar = {
@@ -371,19 +376,45 @@ fun TaskDetailScreen(
                         }
                     }
 
-                    // Supervisor: Assign to Technician (when collected, before technician starts)
-                    if (onAssignTaskClick != null && task.statusEnum == TaskStatus.COLLECTED) {
+                    // Supervisor: Assign button when unassigned, or "Assigned to [name]" when assigned
+                    if (onAssignTaskClick != null) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = onAssignTaskClick,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                            Text(stringResource(R.string.assign_to_technician))
+                        if (task.assignedToTechnicianId == null) {
+                            Button(
+                                onClick = onAssignTaskClick,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text(stringResource(R.string.assign_to_technician))
+                            }
+                        } else {
+                            val assignedName = uiState.assignedTechnicianName ?: stringResource(R.string.technician_name)
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = SuccessGreen.copy(alpha = 0.2f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Assignment,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(end = 8.dp),
+                                        tint = SuccessGreen
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.assigned_to_tech, assignedName),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
                         }
                     }
 

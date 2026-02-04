@@ -100,7 +100,8 @@ fun DashboardScreen(
     authDataStore: AuthDataStore,
     initialEditTaskId: Long? = null,
     onTaskClick: (Long) -> Unit,
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onClearAllData: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
@@ -327,7 +328,8 @@ fun DashboardScreen(
                     tasksAssigned = assignedCount,
                     inProgress = inProgressCount,
                     completed = completedCount,
-                    onLogout = onLogout
+                    onLogout = onLogout,
+                    onClearAllData = onClearAllData
                 )
             }
         }
@@ -580,19 +582,19 @@ private fun TaskListItem(
             }
             val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED ||
                 task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
-            if (!isCompleted) {
-                Box {
-                    IconButton(
-                        onClick = { showMenu = true },
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.update))
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.clip(RoundedCornerShape(16.dp))
-                    ) {
+            Box {
+                IconButton(
+                    onClick = { showMenu = true },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.update))
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.clip(RoundedCornerShape(16.dp))
+                ) {
+                    if (!isCompleted) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.update), style = MaterialTheme.typography.bodyLarge) },
                             leadingIcon = {
@@ -607,19 +609,19 @@ private fun TaskListItem(
                             modifier = Modifier.padding(horizontal = 12.dp),
                             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                         )
-                        DropdownMenuItem(
-                            text = {
-                                Text(stringResource(R.string.delete), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                            },
-                            onClick = {
-                                showMenu = false
-                                showDeleteDialog = true
-                            }
-                        )
                     }
+                    DropdownMenuItem(
+                        text = {
+                            Text(stringResource(R.string.delete), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        },
+                        onClick = {
+                            showMenu = false
+                            showDeleteDialog = true
+                        }
+                    )
                 }
             }
         }

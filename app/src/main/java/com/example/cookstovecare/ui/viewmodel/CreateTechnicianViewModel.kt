@@ -3,6 +3,7 @@ package com.example.cookstovecare.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.cookstovecare.data.TechnicianSkillType
 import com.example.cookstovecare.data.repository.CookstoveRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,8 +13,6 @@ import kotlinx.coroutines.launch
 data class CreateTechnicianUiState(
     val name: String = "",
     val phoneNumber: String = "",
-    val skillType: com.example.cookstovecare.data.TechnicianSkillType = com.example.cookstovecare.data.TechnicianSkillType.BOTH,
-    val isActive: Boolean = true,
     val error: String? = null,
     val isLoading: Boolean = false
 )
@@ -33,14 +32,6 @@ class CreateTechnicianViewModel(
         _uiState.value = _uiState.value.copy(phoneNumber = phone, error = null)
     }
 
-    fun updateSkillType(skillType: com.example.cookstovecare.data.TechnicianSkillType) {
-        _uiState.value = _uiState.value.copy(skillType = skillType, error = null)
-    }
-
-    fun updateIsActive(isActive: Boolean) {
-        _uiState.value = _uiState.value.copy(isActive = isActive, error = null)
-    }
-
     fun create(onSuccess: () -> Unit) {
         val state = _uiState.value
         if (state.name.isBlank()) {
@@ -53,7 +44,7 @@ class CreateTechnicianViewModel(
         }
         _uiState.value = state.copy(isLoading = true, error = null)
         viewModelScope.launch {
-            repository.createTechnician(state.name, state.phoneNumber, state.skillType, state.isActive)
+            repository.createTechnician(state.name, state.phoneNumber, TechnicianSkillType.BOTH, isActive = true)
                 .fold(
                     onSuccess = {
                         _uiState.value = state.copy(isLoading = false)

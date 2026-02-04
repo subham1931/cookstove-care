@@ -39,6 +39,7 @@ import com.example.cookstovecare.ui.viewmodel.SupervisorViewModelFactory
 import com.example.cookstovecare.ui.viewmodel.TaskDetailViewModel
 import com.example.cookstovecare.ui.viewmodel.TaskDetailViewModelFactory
 import com.example.cookstovecare.ui.viewmodel.TechnicianViewModelFactory
+import com.example.cookstovecare.ui.viewmodel.TechnicianDetailViewModelFactory
 import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModelFactory
 import kotlinx.coroutines.launch
 
@@ -110,7 +111,8 @@ fun CookstoveCareNavGraph(
                             authDataStore = app.authDataStore,
                             initialEditTaskId = null,
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
-                            onLogout = { scope.launch { app.authDataStore.logout() } }
+                            onLogout = { scope.launch { app.authDataStore.logout() } },
+                            onClearAllData = { scope.launch { repository.clearAllData() } }
                         )
                     }
 
@@ -122,10 +124,11 @@ fun CookstoveCareNavGraph(
                             viewModel = viewModel,
                             repository = repository,
                             authDataStore = app.authDataStore,
+                            navController = navController,
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
                             onCreateTechnician = { navController.navigate(NavRoutes.CREATE_TECHNICIAN) },
-                            onEditTechnician = { id -> navController.navigate(NavRoutes.editTechnician(id)) },
-                            onLogout = { scope.launch { app.authDataStore.logout() } }
+                            onLogout = { scope.launch { app.authDataStore.logout() } },
+                            onClearAllData = { scope.launch { repository.clearAllData() } }
                         )
                     }
 
@@ -136,6 +139,7 @@ fun CookstoveCareNavGraph(
                         SupervisorTaskListScreen(
                             viewModel = viewModel,
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
+                            onAssignTask = { taskId -> navController.navigate(NavRoutes.assignTask(taskId)) },
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -153,7 +157,8 @@ fun CookstoveCareNavGraph(
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
                             onCompleteRepair = { taskId -> navController.navigate(NavRoutes.repairForm(taskId)) },
                             onCompleteReplacement = { taskId -> navController.navigate(NavRoutes.replacementForm(taskId)) },
-                            onLogout = { scope.launch { app.authDataStore.logout() } }
+                            onLogout = { scope.launch { app.authDataStore.logout() } },
+                            onClearAllData = { scope.launch { repository.clearAllData() } }
                         )
                     }
 
@@ -171,7 +176,8 @@ fun CookstoveCareNavGraph(
                             authDataStore = app.authDataStore,
                             initialEditTaskId = taskId,
                             onTaskClick = { id -> navController.navigate(NavRoutes.taskDetail(id)) },
-                            onLogout = { scope.launch { app.authDataStore.logout() } }
+                            onLogout = { scope.launch { app.authDataStore.logout() } },
+                            onClearAllData = { scope.launch { repository.clearAllData() } }
                         )
                     }
 
@@ -201,7 +207,17 @@ fun CookstoveCareNavGraph(
                                 { navController.navigate(NavRoutes.assignTask(taskId)) }
                             } else null,
                             canEditCompletedReport = userRole != UserRole.TECHNICIAN,
-                            onBack = { navController.popBackStack() }
+                            onBack = {
+                                if (userRole == UserRole.SUPERVISOR) {
+                                    navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", 1)
+                                }
+                                if (!navController.popBackStack()) {
+                                    navController.navigate(backToDashboard) {
+                                        popUpTo(backToDashboard) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            }
                         )
                     }
 
@@ -302,7 +318,23 @@ fun CookstoveCareNavGraph(
                             viewModel = viewModel,
                             onBack = { navController.popBackStack() },
                             onCreateTechnician = { navController.navigate(NavRoutes.CREATE_TECHNICIAN) },
-                            onEditTechnician = { id -> navController.navigate(NavRoutes.editTechnician(id)) }
+                            onTechnicianClick = { id -> navController.navigate(NavRoutes.technicianDetail(id)) }
+                        )
+                    }
+
+                    composable(
+                        route = NavRoutes.TECHNICIAN_DETAIL,
+                        arguments = listOf(navArgument("technicianId") { type = NavType.LongType })
+                    ) { backStackEntry ->
+                        val technicianId = backStackEntry.arguments?.getLong("technicianId") ?: 0L
+                        val viewModel: com.example.cookstovecare.ui.viewmodel.TechnicianDetailViewModel = viewModel(
+                            factory = TechnicianDetailViewModelFactory(repository, technicianId)
+                        )
+                        TechnicianDetailScreen(
+                            technicianId = technicianId,
+                            viewModel = viewModel,
+                            onEdit = { navController.navigate(NavRoutes.editTechnician(technicianId)) },
+                            onBack = { navController.popBackStack() }
                         )
                     }
 

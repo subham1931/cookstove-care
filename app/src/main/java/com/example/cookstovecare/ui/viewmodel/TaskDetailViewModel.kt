@@ -20,6 +20,7 @@ data class TaskDetailUiState(
     val task: CookstoveTask? = null,
     val repairData: RepairData? = null,
     val replacementData: ReplacementData? = null,
+    val assignedTechnicianName: String? = null,
     val isLoading: Boolean = true
 )
 
@@ -37,16 +38,25 @@ class TaskDetailViewModel(
         loadTaskDetail()
     }
 
+    /** Call to refresh task data (e.g. when returning from Assign Task screen). */
+    fun refresh() {
+        loadTaskDetail()
+    }
+
     private fun loadTaskDetail() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             val task = repository.getTaskById(_taskId)
             val repairData = task?.let { repository.getRepairDataByTaskId(it.id) }
             val replacementData = task?.let { repository.getReplacementDataByTaskId(it.id) }
+            val assignedName = task?.assignedToTechnicianId?.let { id ->
+                repository.getTechnicianById(id)?.name
+            }
             _uiState.value = TaskDetailUiState(
                 task = task,
                 repairData = repairData,
                 replacementData = replacementData,
+                assignedTechnicianName = assignedName,
                 isLoading = false
             )
         }

@@ -1,16 +1,20 @@
 package com.example.cookstovecare.ui.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -21,7 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,7 +43,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
-import com.example.cookstovecare.data.TechnicianSkillType
 import com.example.cookstovecare.data.repository.TechnicianWithCount
 import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModel
 
@@ -49,7 +52,7 @@ fun TechniciansListScreen(
     viewModel: TechniciansListViewModel,
     onBack: (() -> Unit)? = null,
     onCreateTechnician: () -> Unit,
-    onEditTechnician: (Long) -> Unit
+    onTechnicianClick: (Long) -> Unit = {}
 ) {
     val techniciansWithCounts by viewModel.techniciansWithCounts.collectAsState(initial = emptyList())
     val snackbarMessage by viewModel.snackbarMessage.collectAsState()
@@ -123,10 +126,7 @@ fun TechniciansListScreen(
                 items(techniciansWithCounts) { item ->
                     TechnicianCard(
                         technicianWithCount = item,
-                        onEdit = { onEditTechnician(item.technician.id) },
-                        onActiveChange = { newActive ->
-                            viewModel.setTechnicianActive(item.technician.id, newActive) { }
-                        }
+                        onClick = { onTechnicianClick(item.technician.id) }
                     )
                 }
             }
@@ -137,12 +137,13 @@ fun TechniciansListScreen(
 @Composable
 private fun TechnicianCard(
     technicianWithCount: TechnicianWithCount,
-    onEdit: () -> Unit,
-    onActiveChange: (Boolean) -> Unit
+    onClick: () -> Unit
 ) {
     val tech = technicianWithCount.technician
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -151,9 +152,39 @@ private fun TechnicianCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Default profile picture (avatar)
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val initial = tech.name.take(1).uppercase().ifBlank { "" }
+                    if (initial.isNotEmpty()) {
+                        Text(
+                            text = initial,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+            // Name and active status
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = tech.name,
@@ -161,49 +192,26 @@ private fun TechnicianCard(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = tech.phoneNumber,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = stringResource(R.string.technician_id) + ": ${tech.id}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (tech.isActive) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    }
                 ) {
                     Text(
-                        text = stringResource(R.string.assigned_count, technicianWithCount.assignedTaskCount),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = when (tech.skillType) {
-                            TechnicianSkillType.REPAIR -> stringResource(R.string.skill_repair)
-                            TechnicianSkillType.REPLACEMENT -> stringResource(R.string.skill_replacement)
-                            TechnicianSkillType.BOTH -> stringResource(R.string.skill_both)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = if (tech.isActive) stringResource(R.string.active) else stringResource(R.string.inactive),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = if (tech.isActive) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        }
                     )
                 }
-                Text(
-                    text = if (tech.isActive) stringResource(R.string.active) else stringResource(R.string.inactive),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (tech.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_technician))
-                }
-                Switch(
-                    checked = tech.isActive,
-                    onCheckedChange = { onActiveChange(it) }
-                )
             }
         }
     }

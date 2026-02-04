@@ -1,33 +1,36 @@
 package com.example.cookstovecare.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,13 +39,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.UserRole
 
 /**
- * Shared Profile screen for all roles (Field Officer, Supervisor, Technician).
- * Material 3 compliant: Header, Work Summary, Settings/Actions, Support, Logout.
+ * Profile screen with modern layout: purple header, overlapping avatar,
+ * CONTACT, ACCOUNT, and SETTINGS sections.
  */
 @Composable
 fun ProfileScreen(
@@ -55,9 +59,11 @@ fun ProfileScreen(
     inProgress: Int = 0,
     completed: Int = 0,
     showWorkSummary: Boolean = true,
+    showSyncStatus: Boolean = true,
     isOnline: Boolean = true,
     lastSyncTime: String? = null,
     onLogout: () -> Unit,
+    onClearAllData: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val roleLabel = when (role) {
@@ -65,224 +71,170 @@ fun ProfileScreen(
         UserRole.SUPERVISOR -> stringResource(R.string.role_supervisor)
         UserRole.TECHNICIAN -> stringResource(R.string.role_technician)
     }
-    val roleSecondary = buildString {
-        append(roleLabel)
-        id?.let { append(" • #").append(it) }
-        status?.let { append(" • ").append(it) }
-    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
     ) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
         ) {
-            ProfileHeader(
-                displayName = displayName,
-                displayPhone = displayPhone,
-                roleSecondary = roleSecondary
+            val nameToShow = when (role) {
+                UserRole.FIELD_OFFICER -> stringResource(R.string.field_officer_name)
+                UserRole.SUPERVISOR -> stringResource(R.string.supervisor_name)
+                UserRole.TECHNICIAN -> stringResource(R.string.technician_name)
+            }
+            // Avatar
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 24.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(
+                    modifier = Modifier.size(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val initial = nameToShow.take(1).uppercase().ifBlank { "" }
+                    if (initial.isNotEmpty()) {
+                        Text(
+                            text = initial,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+
+            // Name and designation
+            Text(
+                text = nameToShow,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                maxLines = 1
+            )
+            Text(
+                text = roleLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
             )
 
-            if (showWorkSummary) {
-                WorkSummaryCard(
-                    tasksAssigned = tasksAssigned,
-                    inProgress = inProgress,
-                    completed = completed
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Edit Profile section
+            SectionHeader(title = stringResource(R.string.section_contact))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                ProfileMenuItem(
+                    icon = Icons.Default.Edit,
+                    title = stringResource(R.string.edit_profile),
+                    onClick = { /* stub */ }
                 )
             }
 
-            ProfileActionList(
-                isOnline = isOnline,
-                lastSyncTime = lastSyncTime
-            )
-
-            SupportSection()
-        }
-
-        LogoutButton(onLogout = onLogout)
-    }
-}
-
-@Composable
-private fun ProfileHeader(
-    displayName: String,
-    displayPhone: String,
-    roleSecondary: String
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp, bottom = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Surface(
-            modifier = Modifier.size(80.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+            // SETTINGS section
+            SectionHeader(title = stringResource(R.string.section_settings))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                val initial = displayName.take(1).uppercase().ifBlank { "" }
-                if (initial.isNotEmpty()) {
-                    Text(
-                        text = initial,
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                ProfileMenuItem(
+                    icon = Icons.Default.Lock,
+                    title = stringResource(R.string.change_password),
+                    onClick = { /* stub */ }
+                )
+                onClearAllData?.let { clear ->
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                    ProfileMenuItem(
+                        icon = Icons.Default.DeleteSweep,
+                        title = stringResource(R.string.start_fresh),
+                        subtitle = stringResource(R.string.start_fresh_subtitle),
+                        onClick = clear
                     )
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                ProfileMenuItem(
+                    icon = Icons.Default.Info,
+                    title = stringResource(R.string.versioning),
+                    subtitle = getAppVersion(),
+                    onClick = null
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                ProfileMenuItem(
+                    icon = Icons.Default.Help,
+                    title = stringResource(R.string.faq_and_help),
+                    onClick = { /* stub */ }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                ProfileMenuItem(
+                    icon = Icons.AutoMirrored.Filled.Logout,
+                    title = stringResource(R.string.logout),
+                    tint = MaterialTheme.colorScheme.error,
+                    onClick = onLogout
+                )
             }
         }
-        Spacer(modifier = Modifier.size(12.dp))
-        Text(
-            text = displayName.ifBlank { "—" },
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.size(4.dp))
-        Text(
-            text = displayPhone.ifBlank { "—" },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.size(4.dp))
-        Text(
-            text = roleSecondary,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
 @Composable
-private fun WorkSummaryCard(
-    tasksAssigned: Int,
-    inProgress: Int,
-    completed: Int
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 20.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.work_summary),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            WorkSummaryRow(
-                label = stringResource(R.string.tasks_assigned),
-                value = tasksAssigned
-            )
-            WorkSummaryRow(
-                label = stringResource(R.string.in_progress_tasks),
-                value = inProgress
-            )
-            WorkSummaryRow(
-                label = stringResource(R.string.completed_tasks),
-                value = completed
-            )
-        }
-    }
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
 }
 
 @Composable
-private fun WorkSummaryRow(
-    label: String,
-    value: Int
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
-private fun ProfileActionList(
-    isOnline: Boolean,
-    lastSyncTime: String?
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        ProfileActionItem(
-            icon = Icons.Default.Lock,
-            title = stringResource(R.string.change_password),
-            subtitle = null,
-            onClick = { /* stub */ }
-        )
-        ProfileActionItem(
-            icon = Icons.Default.Language,
-            title = stringResource(R.string.app_language),
-            subtitle = null,
-            onClick = { /* stub */ }
-        )
-        ProfileActionItem(
-            icon = Icons.Default.Sync,
-            title = stringResource(R.string.sync_status),
-            subtitle = when {
-                isOnline -> lastSyncTime?.let { stringResource(R.string.last_sync, it) }
-                    ?: stringResource(R.string.sync_online)
-                else -> lastSyncTime?.let { stringResource(R.string.last_sync, it) }
-                    ?: stringResource(R.string.never_synced)
-            },
-            onClick = { /* stub */ }
-        )
-    }
-}
-
-@Composable
-private fun ProfileActionItem(
+private fun ProfileMenuItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
-    subtitle: String?,
-    onClick: (() -> Unit)? = null
+    subtitle: String? = null,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    onClick: (() -> Unit)?
 ) {
     val modifier = Modifier
         .fillMaxWidth()
         .then(
             if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
         )
-        .padding(vertical = 12.dp)
+        .padding(16.dp)
+
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
@@ -291,46 +243,25 @@ private fun ProfileActionItem(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = tint
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
+                color = if (onClick != null) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface
             )
             subtitle?.let { sub ->
                 Text(
                     text = sub,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun SupportSection() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        ProfileActionItem(
-            icon = Icons.AutoMirrored.Filled.Help,
-            title = stringResource(R.string.help_support),
-            subtitle = null,
-            onClick = { /* stub */ }
-        )
-        ProfileActionItem(
-            icon = Icons.Default.Info,
-            title = stringResource(R.string.app_version),
-            subtitle = getAppVersion(),
-            onClick = null
-        )
     }
 }
 
@@ -342,28 +273,5 @@ private fun getAppVersion(): String {
         packageInfo.versionName ?: "—"
     } catch (_: Exception) {
         "—"
-    }
-}
-
-@Composable
-private fun LogoutButton(
-    onLogout: () -> Unit
-) {
-    OutlinedButton(
-        onClick = onLogout,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 24.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.error
-        )
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.Logout,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(stringResource(R.string.logout))
     }
 }

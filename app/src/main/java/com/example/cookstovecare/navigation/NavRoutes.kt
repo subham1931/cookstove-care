@@ -21,6 +21,8 @@ object NavRoutes {
     fun assignTask(taskId: Long) = "assign_task/$taskId"
     const val SUPERVISOR_TASK_LIST = "supervisor_task_list"
     const val TECHNICIANS_LIST = "technicians_list"
+    const val TECHNICIAN_DETAIL = "technician_detail/{technicianId}"
+    fun technicianDetail(technicianId: Long) = "technician_detail/$technicianId"
     const val EDIT_TECHNICIAN = "edit_technician/{technicianId}"
     fun editTechnician(technicianId: Long) = "edit_technician/$technicianId"
     const val CREATE_TECHNICIAN = "create_technician"
