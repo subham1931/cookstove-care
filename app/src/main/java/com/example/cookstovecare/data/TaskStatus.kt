@@ -14,5 +14,7 @@ enum class TaskStatus {
     /** Repair completed for this task */
     REPAIR_COMPLETED,
     /** Replacement completed for this task */
-    REPLACEMENT_COMPLETED
+    REPLACEMENT_COMPLETED,
+    /** Order distributed by field officer */
+    DISTRIBUTED
 }

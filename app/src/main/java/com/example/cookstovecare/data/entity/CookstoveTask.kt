@@ -19,6 +19,8 @@ data class CookstoveTask(
     val returnDate: Long? = null,
     val returnImageUri: String? = null,
     val completedAt: Long? = null,
+    val distributionDate: Long? = null,
+    val distributionImageUri: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val statusEnum: TaskStatus

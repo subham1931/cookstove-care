@@ -188,6 +188,10 @@ class CookstoveRepository(
         dataStore.updateTaskReturn(taskId, returnDate, returnImageUri)
     }
 
+    suspend fun completeOrderDistribution(taskId: Long, distributionImageUri: String?) {
+        dataStore.updateTaskDistribution(taskId, System.currentTimeMillis(), distributionImageUri)
+    }
+
     fun getAllTechnicians(): Flow<List<Technician>> = technicianDataStore.allTechnicians
 
     fun getActiveTechnicians(): Flow<List<Technician>> = technicianDataStore.activeTechnicians

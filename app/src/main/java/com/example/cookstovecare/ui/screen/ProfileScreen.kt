@@ -44,10 +44,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.UserRole
+import com.example.cookstovecare.ui.theme.AuthGradientStart
+import com.example.cookstovecare.ui.theme.AuthGradientStartDark
 
 /**
  * Profile screen with modern layout: purple header, overlapping avatar,
@@ -80,21 +84,34 @@ fun ProfileScreen(
         UserRole.TECHNICIAN -> stringResource(R.string.role_technician)
     }
 
+    val isDark = isSystemInDarkTheme()
+    val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Profile header
-        Text(
-            text = stringResource(R.string.nav_profile),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+        // Styled Profile header
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-        )
+                .clip(
+                    RoundedCornerShape(
+                        bottomStart = 32.dp,
+                        bottomEnd = 32.dp
+                    )
+                )
+                .background(headerColor)
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.nav_profile),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
         
         Column(
             modifier = Modifier

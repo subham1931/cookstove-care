@@ -40,11 +40,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.CheckCircle
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -69,6 +75,7 @@ import com.example.cookstovecare.R
 import com.example.cookstovecare.data.TaskStatus
 import com.example.cookstovecare.data.UserRole
 import com.example.cookstovecare.ui.theme.SuccessGreen
+import com.example.cookstovecare.ui.components.ImagePickerCard
 import com.example.cookstovecare.ui.viewmodel.TaskDetailViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -87,10 +94,19 @@ fun TaskDetailScreen(
     onAddReturnClick: (() -> Unit)? = null,
     onAssignTaskClick: (() -> Unit)? = null,
     canEditCompletedReport: Boolean = true,
+    onCompleteOrder: ((Uri?) -> Unit)? = null,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    
+    // Complete Order modal state
+    var showCompleteOrderModal by remember { mutableStateOf(false) }
+    var completeOrderImageUri by remember { mutableStateOf<Uri?>(null) }
+    val completeOrderSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val completeOrderImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { completeOrderImageUri = it } }
 
     LaunchedEffect(Unit) {
         viewModel.refresh()
@@ -315,6 +331,7 @@ fun TaskDetailScreen(
                                             TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
                                             TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repair_completed)
                                             TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replacement_completed)
+                                            TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
                                         },
                                         isStatus = true,
                                         statusEnum = task.statusEnum
@@ -352,12 +369,33 @@ fun TaskDetailScreen(
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
                                     }
-                                    completionImageUri?.let { uri ->
+                                    // Show completion image only for non-Field Officers, or when order is distributed
+                                    if (userRole != UserRole.FIELD_OFFICER || task.distributionDate != null) {
+                                        completionImageUri?.let { uri ->
+                                            TaskDetailImageRow(
+                                                label = stringResource(R.string.completion_image),
+                                                imageUri = uri
+                                            )
+                                        }
+                                    }
+                                    
+                                    // Distribution date and image (for Field Officer after completing order)
+                                    task.distributionDate?.let { millis ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        OfficeDataItem(
+                                            icon = Icons.Default.CalendarToday,
+                                            label = stringResource(R.string.distribution_date),
+                                            value = dateFormat.format(Date(millis))
+                                        )
+                                    }
+                                    task.distributionImageUri?.let { uri ->
+                                        Spacer(modifier = Modifier.height(16.dp))
                                         TaskDetailImageRow(
-                                            label = stringResource(R.string.completion_image),
+                                            label = stringResource(R.string.distribution_image),
                                             imageUri = uri
                                         )
                                     }
+                                    
                                     task.returnDate?.let { millis ->
                                         Spacer(modifier = Modifier.height(16.dp))
                                         OfficeDataItem(
@@ -435,8 +473,8 @@ fun TaskDetailScreen(
                         }
                     }
 
-                    // Complete form button (when collected) - Technician/Field Officer only
-                    if (onAssignTaskClick == null && viewModel.canProceedToRepairOrReplacement) {
+                    // Complete form button (when collected) - Technician only (not Field Officer)
+                    if (onAssignTaskClick == null && viewModel.canProceedToRepairOrReplacement && userRole == UserRole.TECHNICIAN) {
                         Spacer(modifier = Modifier.height(8.dp))
                         when (task.typeOfProcess) {
                             "REPAIRING" -> {
@@ -476,8 +514,24 @@ fun TaskDetailScreen(
                         }
                     }
 
-                    // Add Return (when completed and return not yet added - for Field Officer only)
-                    if (onAssignTaskClick == null && (repairData != null || replacementData != null) && task.returnDate == null && onAddReturnClick != null) {
+                    // Complete Order button (for Field Officer when task is completed by technician and not yet distributed)
+                    if (userRole == UserRole.FIELD_OFFICER && (repairData != null || replacementData != null) && task.distributionDate == null && onCompleteOrder != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { showCompleteOrderModal = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                            Text(stringResource(R.string.complete_order))
+                        }
+                    }
+                    
+                    // Add Return (when completed and return not yet added - for Supervisor only)
+                    if (userRole == UserRole.SUPERVISOR && onAssignTaskClick == null && (repairData != null || replacementData != null) && task.returnDate == null && onAddReturnClick != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = onAddReturnClick,
@@ -491,8 +545,8 @@ fun TaskDetailScreen(
                         }
                     }
 
-                    // Edit submitted report (when completed) - Field Officer only; Technician cannot edit
-                    if (onAssignTaskClick == null && canEditCompletedReport && (repairData != null || replacementData != null)) {
+                    // Edit submitted report (when completed) - Supervisor only; Field Officer and Technician cannot edit
+                    if (userRole == UserRole.SUPERVISOR && onAssignTaskClick == null && canEditCompletedReport && (repairData != null || replacementData != null)) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = when {
@@ -509,6 +563,58 @@ fun TaskDetailScreen(
                             Text(stringResource(R.string.edit_submitted_report))
                         }
                     }
+                }
+            }
+        }
+    }
+    
+    // Complete Order Modal
+    if (showCompleteOrderModal) {
+        ModalBottomSheet(
+            onDismissRequest = { 
+                showCompleteOrderModal = false
+                completeOrderImageUri = null
+            },
+            sheetState = completeOrderSheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.complete_order_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                // Image picker
+                Text(
+                    text = stringResource(R.string.complete_order_image),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                ImagePickerCard(
+                    imageUri = completeOrderImageUri?.toString(),
+                    onTakePhoto = { /* Camera not needed for now */ },
+                    onChooseFromGallery = { completeOrderImagePicker.launch("image/*") }
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Button(
+                    onClick = {
+                        onCompleteOrder?.invoke(completeOrderImageUri)
+                        showCompleteOrderModal = false
+                        completeOrderImageUri = null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text(stringResource(R.string.complete_order))
                 }
             }
         }

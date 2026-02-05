@@ -21,8 +21,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.AssignmentTurnedIn
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
 import com.example.cookstovecare.ui.theme.AuthGradientStart
 import com.example.cookstovecare.ui.theme.AuthGradientStartDark
+import com.example.cookstovecare.ui.theme.SuccessGreen
 import com.example.cookstovecare.data.TaskStatus
 import com.example.cookstovecare.data.entity.CookstoveTask
 import com.example.cookstovecare.data.entity.Technician
@@ -79,7 +86,7 @@ import java.util.Locale
 private enum class TechnicianFilter(val statuses: List<TaskStatus>) {
     NEW_TASK(listOf(TaskStatus.ASSIGNED)),
     ACTIVE(listOf(TaskStatus.IN_PROGRESS)),
-    COMPLETED(listOf(TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED))
+    COMPLETED(listOf(TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED, TaskStatus.DISTRIBUTED))
 }
 
 /** Bottom navigation tabs */
@@ -107,7 +114,7 @@ fun TechnicianDashboardScreen(
     val technician by viewModel.technicianDetails.collectAsState(initial = null)
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
     val profileImageUri by authDataStore.profileImageUri.collectAsState(initial = null)
-    var selectedTabIndex by remember { mutableStateOf(0) }
+    var selectedTabIndex by rememberSaveable { mutableStateOf(0) }
     var selectedBottomTab by rememberSaveable { mutableStateOf(TechnicianBottomTab.TASKS) }
     
     // Modal state for repair/replacement forms
@@ -136,7 +143,7 @@ fun TechnicianDashboardScreen(
                         icon = {
                             Icon(
                                 imageVector = when (tab) {
-                                    TechnicianBottomTab.TASKS -> Icons.Default.Assignment
+                                    TechnicianBottomTab.TASKS -> Icons.Default.Home
                                     TechnicianBottomTab.PROFILE -> Icons.Default.Person
                                 },
                                 contentDescription = stringResource(tab.titleRes)
@@ -153,7 +160,9 @@ fun TechnicianDashboardScreen(
                 val todoCount = assignedTasks.count { it.statusEnum == TaskStatus.ASSIGNED }
                 val inProgressCount = assignedTasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
                 val doneCount = assignedTasks.count {
-                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || 
+                    it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED ||
+                    it.statusEnum == TaskStatus.DISTRIBUTED
                 }
                 TechnicianTaskScreen(
                     modifier = Modifier
@@ -182,7 +191,9 @@ fun TechnicianDashboardScreen(
                 val assignedCount = assignedTasks.count { it.statusEnum == TaskStatus.ASSIGNED }
                 val inProgressCount = assignedTasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
                 val completedCount = assignedTasks.count {
-                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || 
+                    it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED ||
+                    it.statusEnum == TaskStatus.DISTRIBUTED
                 }
                 ProfileScreen(
                     modifier = Modifier
@@ -454,9 +465,26 @@ private fun TechnicianTaskCard(
     onStart: () -> Unit,
     onComplete: () -> Unit
 ) {
+    val context = LocalContext.current
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-    val collectionDateText = dateFormat.format(Date(task.collectionDate))
-    val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED || task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+    val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED || 
+        task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED ||
+        task.statusEnum == TaskStatus.DISTRIBUTED
+    
+    // Determine status text for technician view
+    val statusText = when (task.statusEnum) {
+        TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
+        TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
+        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED, TaskStatus.DISTRIBUTED -> 
+            stringResource(R.string.status_completed)
+        else -> stringResource(R.string.status_assigned)
+    }
+    
+    val statusColor = when (task.statusEnum) {
+        TaskStatus.ASSIGNED -> MaterialTheme.colorScheme.primary
+        TaskStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
+        else -> SuccessGreen
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -472,57 +500,72 @@ private fun TechnicianTaskCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         onClick = onClick
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Top row: Cookstove number (left), Status chip with completion date (right)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+            // Left side: Product image
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = task.cookstoveNumber,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Column(
-                    horizontalAlignment = Alignment.End
-                ) {
-                    TaskStatusChip(status = task.statusEnum)
-                    // Show completion date for completed tasks
-                    if (isCompleted && task.completedAt != null) {
-                        Text(
-                            text = dateFormat.format(Date(task.completedAt)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
+                if (task.receivedProductImageUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(task.receivedProductImageUri)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.AddPhotoAlternate,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
                 }
             }
-            // Middle row: Task type chip, Spacer, Collection date
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TaskTypeChip(typeOfProcess = task.typeOfProcess)
-                Text(
-                    text = collectionDateText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            // Bottom row: Primary action button
-            TaskPrimaryActionButton(
-                status = task.statusEnum,
-                onStart = onStart,
-                onComplete = onComplete,
-                onView = onClick
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Middle: Cookstove number
+            Text(
+                text = task.cookstoveNumber,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
             )
+            
+            // Right side: Status and date
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                // Status text
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = statusColor
+                )
+                // Show completed date for completed tasks
+                if (isCompleted && task.completedAt != null) {
+                    Text(
+                        text = dateFormat.format(Date(task.completedAt)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -550,6 +593,11 @@ private fun TaskStatusChip(status: TaskStatus) {
             R.string.status_assigned,
             MaterialTheme.colorScheme.primaryContainer,
             MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        TaskStatus.DISTRIBUTED -> Triple(
+            R.string.status_distributed,
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+            MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
     Surface(

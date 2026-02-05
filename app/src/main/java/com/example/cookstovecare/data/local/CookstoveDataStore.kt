@@ -149,6 +149,23 @@ class CookstoveDataStore(private val context: Context) {
         }
     }
 
+    suspend fun updateTaskDistribution(taskId: Long, distributionDate: Long, distributionImageUri: String?) {
+        context.dataStore.edit { editPrefs ->
+            val json = editPrefs[tasksKey] ?: "[]"
+            @Suppress("UNCHECKED_CAST")
+            val dtos: MutableList<CookstoveTaskDto> = ((gson.fromJson(json, taskListType) as? List<CookstoveTaskDto>) ?: emptyList()).toMutableList()
+            val idx = dtos.indexOfFirst { it.id == taskId }
+            if (idx >= 0) {
+                dtos[idx] = dtos[idx].copy(
+                    distributionDate = distributionDate,
+                    distributionImageUri = distributionImageUri,
+                    status = "DISTRIBUTED"
+                )
+                editPrefs[tasksKey] = gson.toJson(dtos)
+            }
+        }
+    }
+
     suspend fun getRepairDataByTaskId(taskId: Long): RepairData? {
         val prefs = context.dataStore.data.first()
         val json = prefs[repairsKey] ?: "{}"
@@ -267,6 +284,8 @@ private data class CookstoveTaskDto(
     val returnDate: Long? = null,
     val returnImageUri: String? = null,
     val completedAt: Long? = null,
+    val distributionDate: Long? = null,
+    val distributionImageUri: String? = null,
     val createdAt: Long
 ) {
     fun toEntity() = CookstoveTask(
@@ -282,6 +301,8 @@ private data class CookstoveTaskDto(
         returnDate = returnDate,
         returnImageUri = returnImageUri,
         completedAt = completedAt,
+        distributionDate = distributionDate,
+        distributionImageUri = distributionImageUri,
         createdAt = createdAt
     )
     companion object {
@@ -298,6 +319,8 @@ private data class CookstoveTaskDto(
             returnDate = t.returnDate,
             returnImageUri = t.returnImageUri,
             completedAt = t.completedAt,
+            distributionDate = t.distributionDate,
+            distributionImageUri = t.distributionImageUri,
             createdAt = t.createdAt
         )
     }

@@ -18,9 +18,10 @@
     <string name="create_technician">Create Technician</string>
     <string name="assigned_tasks">Assigned Tasks</string>
     <string name="status_assigned">Assigned</string>
+    <string name="status_new">New</string>
     <string name="todays_tasks">Today\'s Tasks</string>
     <string name="welcome_back">Welcome back</string>
-    <string name="nav_tasks">Tasks</string>
+    <string name="nav_tasks">Home</string>
     <string name="nav_profile">Profile</string>
     <string name="my_profile">My Profile</string>
     <string name="section_contact">CONTACT</string>
@@ -56,6 +57,7 @@
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_technicians">Technicians</string>
     <string name="filter_to_do">To do</string>
+    <string name="filter_orders">Orders</string>
     <string name="filter_tab_assigned">To Do</string>
     <string name="filter_tab_active">Active</string>
     <string name="filter_tab_done">Completed</string>
@@ -110,6 +112,12 @@
     <string name="error_name_required">Name is required</string>
     <string name="error_phone_required">Phone is required</string>
     <string name="add_return">Add Return</string>
+    <string name="complete_order">Complete Order</string>
+    <string name="complete_order_image">Distribution Image (Optional)</string>
+    <string name="complete_order_title">Complete Order</string>
+    <string name="distribution_date">Distribution Date</string>
+    <string name="distribution_image">Distribution Image</string>
+    <string name="status_distributed">Distributed</string>
     <string name="return_date">Return Date</string>
     <string name="return_image">Return Image</string>
     <string name="auth_subtitle">Sign in to manage cookstove repair and replacement tasks</string>
@@ -151,16 +159,25 @@
     <string name="dashboard_today_tasks">Your today\'s tasks almost done!</string>
     <string name="dashboard_view_tasks">View Tasks</string>
     <string name="dashboard_in_progress">In Progress</string>
+    <string name="dashboard_pending">Pending</string>
+    <string name="dashboard_orders">Orders</string>
+    <string name="no_orders_distributed">No orders yet</string>
     <string name="dashboard_task_groups">Task Groups</string>
     <string name="dashboard_processing">Processing</string>
     <string name="dashboard_completed">Completed</string>
     <string name="dashboard_tasks_count">%d Tasks</string>
-    <string name="create_new_task">Create New Task</string>
+    <string name="create_new_task">Create New Order</string>
     <string name="cookstove_number">Cookstove Number</string>
     <string name="task_status">Task Status</string>
     <string name="collection_date">Collection Date</string>
     <string name="no_tasks">No tasks yet. Create your first task.</string>
     <string name="no_tasks_supervisor">No tasks yet</string>
+    <string name="no_orders_yet">No orders yet</string>
+    <string name="total_orders">total orders</string>
+    <string name="orders_on_date">orders</string>
+    <string name="no_orders_on_date">No orders on this date</string>
+    <string name="no_in_progress_tasks">No orders in progress</string>
+    <string name="no_completed_tasks">No completed orders</string>
     <string name="loading">Loading…</string>
     <string name="update">Update</string>
     <string name="delete">Delete</string>
@@ -174,16 +191,17 @@
     <string name="status_replacement_completed">Replacement Completed</string>
     <string name="status_processing">Processing</string>
     <string name="status_completed">Completed</string>
+    <string name="status_repaired">Repaired</string>
 
     <!-- Create Task -->
-    <string name="create_task_title">Create New Task</string>
+    <string name="create_task_title">Create New Order</string>
     <string name="customer_name">Customer Name (optional)</string>
     <string name="auto_filled_from_database">Auto-filled from database</string>
     <string name="received_product_image">Received Product Image</string>
     <string name="type_of_process">Type of Process</string>
     <string name="type_repairing">Repairing</string>
     <string name="type_replacement">Replacement</string>
-    <string name="save_task">Save Task</string>
+    <string name="save_task">Create Order</string>
     <string name="update_task">Update Task</string>
     <string name="error_empty_cookstove_number">Cookstove number is required</string>
     <string name="error_duplicate_cookstove_number">This cookstove number already has an active task</string>
@@ -251,7 +269,7 @@
     <string name="replacement_saved">Replacement data saved successfully</string>
 
     <!-- Task Detail -->
-    <string name="task_detail">Task Detail</string>
+    <string name="task_detail">Order Details</string>
     <string name="proceed_to_repair_form">Proceed to Repair Form</string>
     <string name="proceed_to_replacement_form">Proceed to Replacement Form</string>
     <string name="complete_repairing">Complete repairing</string>

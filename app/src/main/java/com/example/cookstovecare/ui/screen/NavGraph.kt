@@ -209,13 +209,19 @@ fun CookstoveCareNavGraph(
                             userRole = userRole,
                             onRepairClick = { navController.navigate(NavRoutes.repairForm(taskId)) },
                             onReplacementClick = { navController.navigate(NavRoutes.replacementForm(taskId)) },
-                            onAddReturnClick = if (userRole == UserRole.FIELD_OFFICER) {
-                                { navController.navigate(NavRoutes.addReturnForm(taskId)) }
-                            } else null,
+                            onAddReturnClick = null,
                             onAssignTaskClick = if (userRole == UserRole.SUPERVISOR) {
                                 { navController.navigate(NavRoutes.assignTask(taskId)) }
                             } else null,
-                            canEditCompletedReport = userRole != UserRole.TECHNICIAN,
+                            canEditCompletedReport = userRole == UserRole.SUPERVISOR,
+                            onCompleteOrder = if (userRole == UserRole.FIELD_OFFICER) {
+                                { imageUri ->
+                                    scope.launch {
+                                        repository.completeOrderDistribution(taskId, imageUri?.toString())
+                                    }
+                                    navController.popBackStack()
+                                }
+                            } else null,
                             onBack = {
                                 if (userRole == UserRole.SUPERVISOR) {
                                     navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", 0)

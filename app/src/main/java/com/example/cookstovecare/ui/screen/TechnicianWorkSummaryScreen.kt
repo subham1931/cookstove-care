@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,7 +84,7 @@ fun TechnicianWorkSummaryScreen(
         mutableStateOf(Calendar.getInstance().get(Calendar.MONTH))
     }
     var isLoading by remember { mutableStateOf(true) }
-    var selectedTab by remember { mutableStateOf(WorkSummaryTab.ASSIGNED) }
+    var selectedTab by rememberSaveable { mutableStateOf(WorkSummaryTab.ASSIGNED) }
     var tasksForDate by remember {
         mutableStateOf<Triple<List<CookstoveTask>, List<CookstoveTask>, List<CookstoveTask>>>(Triple(emptyList(), emptyList(), emptyList()))
     }
@@ -482,7 +483,23 @@ private suspend fun buildDateSummaries(
                     addToDate(completedDay, completed = 1)
                 }
             }
-            else -> { /* COLLECTED - not assigned to technician */ }
+            TaskStatus.DISTRIBUTED -> {
+                // Use distribution date if available, otherwise use completedAt
+                val distributedDay = (task.distributionDate ?: task.completedAt)?.let { distDate ->
+                    Calendar.getInstance().apply { timeInMillis = distDate }
+                        .apply {
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                } ?: collectionDay
+                addToDate(distributedDay, completed = 1)
+            }
+            TaskStatus.COLLECTED -> {
+                // New orders - show on collection date
+                addToDate(collectionDay, assigned = 1)
+            }
         }
     }
 
@@ -535,7 +552,13 @@ private suspend fun getTasksForDate(
                     completed.add(task)
                 }
             }
-            else -> { /* skip */ }
+            TaskStatus.DISTRIBUTED -> {
+                val distributedDay = (task.distributionDate ?: task.completedAt)?.let { toDayStart(it) } ?: collectionDay
+                if (distributedDay == targetDay) completed.add(task)
+            }
+            TaskStatus.COLLECTED -> {
+                if (collectionDay == targetDay) assigned.add(task)
+            }
         }
     }
     return Triple(assigned, inProgress, completed)
@@ -548,7 +571,9 @@ private fun WorkSummaryTaskCard(
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
     val collectionDateText = dateFormat.format(Date(task.collectionDate))
-    val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED || task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+    val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED || 
+        task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED ||
+        task.statusEnum == TaskStatus.DISTRIBUTED
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -621,6 +646,11 @@ private fun WorkSummaryTaskStatusChip(status: TaskStatus) {
             R.string.status_assigned,
             MaterialTheme.colorScheme.primaryContainer,
             MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        TaskStatus.DISTRIBUTED -> Triple(
+            R.string.status_distributed,
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+            MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
     Surface(
