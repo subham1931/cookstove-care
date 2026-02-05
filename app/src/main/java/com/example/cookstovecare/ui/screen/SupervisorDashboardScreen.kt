@@ -3,6 +3,7 @@ package com.example.cookstovecare.ui.screen
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
@@ -18,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -39,9 +41,10 @@ import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModel
 import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-/** Supervisor bottom nav tabs: Tasks (dashboard) -> Technicians -> Profile */
+/** Supervisor bottom nav tabs: Tasks -> Work Summary -> Technicians -> Profile */
 private enum class SupervisorTab(val titleRes: Int) {
     TASKS(R.string.nav_tasks),
+    WORK_SUMMARY(R.string.work_summary),
     TECHNICIANS(R.string.nav_technicians),
     PROFILE(R.string.nav_profile)
 }
@@ -55,14 +58,16 @@ fun SupervisorDashboardScreen(
     navController: NavController,
     onTaskClick: (Long) -> Unit,
     onCreateTechnician: () -> Unit,
+    onEditProfile: () -> Unit = {},
     onLogout: () -> Unit,
     onClearAllData: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
     val centerName by authDataStore.centerName.collectAsState(initial = "")
+    val profileImageUri by authDataStore.profileImageUri.collectAsState(initial = null)
     val userRole by authDataStore.userRole.collectAsState(initial = UserRole.SUPERVISOR)
-    var selectedBottomTab by remember { mutableStateOf(SupervisorTab.TASKS) }
+    var selectedBottomTab by rememberSaveable { mutableStateOf(SupervisorTab.TASKS) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.get<Int>("returnTab")?.let { tabOrdinal ->
             if (tabOrdinal in SupervisorTab.entries.indices) {
@@ -76,9 +81,9 @@ fun SupervisorDashboardScreen(
     Scaffold(
         topBar = {
             when (selectedBottomTab) {
-                SupervisorTab.TASKS, SupervisorTab.TECHNICIANS -> { /* Child screens provide their own TopAppBar */ }
-                SupervisorTab.PROFILE -> TopAppBar(
-                    title = { Text(stringResource(R.string.nav_profile), fontWeight = FontWeight.Bold) }
+                SupervisorTab.TASKS, SupervisorTab.TECHNICIANS, SupervisorTab.PROFILE -> { /* Child screens provide their own header */ }
+                SupervisorTab.WORK_SUMMARY -> TopAppBar(
+                    title = { Text(stringResource(R.string.work_summary), fontWeight = FontWeight.Bold) }
                 )
             }
         },
@@ -92,6 +97,7 @@ fun SupervisorDashboardScreen(
                             Icon(
                                 imageVector = when (tab) {
                                     SupervisorTab.TASKS -> Icons.Default.Assignment
+                                    SupervisorTab.WORK_SUMMARY -> Icons.Default.Assessment
                                     SupervisorTab.TECHNICIANS -> Icons.Default.Group
                                     SupervisorTab.PROFILE -> Icons.Default.Person
                                 },
@@ -115,6 +121,16 @@ fun SupervisorDashboardScreen(
                     onTaskClick = onTaskClick,
                     onAssignTask = { taskId -> navController.navigate(NavRoutes.assignTask(taskId)) },
                     onBack = null
+                )
+            }
+            SupervisorTab.WORK_SUMMARY -> {
+                TechnicianWorkSummaryScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    assignedTasks = tasks,
+                    repository = repository,
+                    onTaskClick = onTaskClick
                 )
             }
             SupervisorTab.TECHNICIANS -> {
@@ -144,6 +160,8 @@ fun SupervisorDashboardScreen(
                     displayName = displayName,
                     displayPhone = phoneNumber,
                     role = userRole,
+                    profileImageUri = profileImageUri,
+                    onEditProfile = onEditProfile,
                     tasksAssigned = assignedCount,
                     inProgress = inProgressCountProfile,
                     completed = completedCountProfile,

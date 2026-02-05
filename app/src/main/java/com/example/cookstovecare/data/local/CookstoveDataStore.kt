@@ -107,15 +107,17 @@ class CookstoveDataStore(private val context: Context) {
         }
     }
 
-    suspend fun updateTaskStatus(taskId: Long, status: String, workStartedAt: Long? = null) {
+    suspend fun updateTaskStatus(taskId: Long, status: String, workStartedAt: Long? = null, completedAt: Long? = null) {
         context.dataStore.edit { editPrefs ->
             val json = editPrefs[tasksKey] ?: "[]"
             @Suppress("UNCHECKED_CAST")
             val dtos: MutableList<CookstoveTaskDto> = ((gson.fromJson(json, taskListType) as? List<CookstoveTaskDto>) ?: emptyList()).toMutableList()
             val idx = dtos.indexOfFirst { it.id == taskId }
             if (idx >= 0) {
-                val updated = dtos[idx].copy(status = status)
-                dtos[idx] = if (workStartedAt != null) updated.copy(workStartedAt = workStartedAt) else updated
+                var updated = dtos[idx].copy(status = status)
+                if (workStartedAt != null) updated = updated.copy(workStartedAt = workStartedAt)
+                if (completedAt != null) updated = updated.copy(completedAt = completedAt)
+                dtos[idx] = updated
                 editPrefs[tasksKey] = gson.toJson(dtos)
             }
         }
@@ -264,6 +266,7 @@ private data class CookstoveTaskDto(
     val workStartedAt: Long? = null,
     val returnDate: Long? = null,
     val returnImageUri: String? = null,
+    val completedAt: Long? = null,
     val createdAt: Long
 ) {
     fun toEntity() = CookstoveTask(
@@ -278,6 +281,7 @@ private data class CookstoveTaskDto(
         workStartedAt = workStartedAt,
         returnDate = returnDate,
         returnImageUri = returnImageUri,
+        completedAt = completedAt,
         createdAt = createdAt
     )
     companion object {
@@ -293,6 +297,7 @@ private data class CookstoveTaskDto(
             workStartedAt = t.workStartedAt,
             returnDate = t.returnDate,
             returnImageUri = t.returnImageUri,
+            completedAt = t.completedAt,
             createdAt = t.createdAt
         )
     }

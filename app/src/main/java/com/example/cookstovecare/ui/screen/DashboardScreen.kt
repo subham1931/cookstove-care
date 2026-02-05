@@ -55,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -103,14 +104,16 @@ fun DashboardScreen(
     authDataStore: AuthDataStore,
     initialEditTaskId: Long? = null,
     onTaskClick: (Long) -> Unit,
+    onEditProfile: () -> Unit = {},
     onLogout: () -> Unit = {},
     onClearAllData: (() -> Unit)? = null
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
     val centerName by authDataStore.centerName.collectAsState(initial = "")
+    val profileImageUri by authDataStore.profileImageUri.collectAsState(initial = null)
     val userRole by authDataStore.userRole.collectAsState(initial = UserRole.FIELD_OFFICER)
-    var selectedBottomTab by remember { mutableStateOf(FieldOfficerTab.TASKS) }
+    var selectedBottomTab by rememberSaveable { mutableStateOf(FieldOfficerTab.TASKS) }
     var showCreateTaskModal by remember { mutableStateOf(false) }
     var showTaskCreatedSuccess by remember { mutableStateOf(false) }
     var editTaskId by remember(initialEditTaskId) { mutableStateOf<Long?>(initialEditTaskId) }
@@ -365,6 +368,8 @@ fun DashboardScreen(
                     displayName = displayName,
                     displayPhone = phoneNumber,
                     role = userRole,
+                    profileImageUri = profileImageUri,
+                    onEditProfile = onEditProfile,
                     tasksAssigned = assignedCount,
                     inProgress = inProgressCount,
                     completed = completedCount,
@@ -492,9 +497,9 @@ private fun TaskListItem(
         }
     }
     val statusSectionText = when (task.statusEnum) {
-        TaskStatus.COLLECTED -> stringResource(R.string.status_processing)
+        TaskStatus.COLLECTED -> stringResource(R.string.not_assigned)
         TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
-        TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
+        TaskStatus.IN_PROGRESS -> stringResource(R.string.in_progress_tasks)
         TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED ->
             stringResource(R.string.status_completed)
     }
@@ -590,7 +595,9 @@ private fun TaskListItem(
                     text = statusSectionText,
                     style = MaterialTheme.typography.labelMedium,
                     color = when (task.statusEnum) {
-                        TaskStatus.COLLECTED -> MaterialTheme.colorScheme.primary
+                        TaskStatus.COLLECTED -> MaterialTheme.colorScheme.error
+                        TaskStatus.ASSIGNED -> MaterialTheme.colorScheme.primary
+                        TaskStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
                         else -> SuccessGreen
                     }
                 )

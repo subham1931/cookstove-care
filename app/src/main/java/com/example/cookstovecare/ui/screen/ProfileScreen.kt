@@ -1,5 +1,6 @@
 package com.example.cookstovecare.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +42,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.example.cookstovecare.R
 import com.example.cookstovecare.data.UserRole
 
@@ -53,6 +58,8 @@ fun ProfileScreen(
     displayName: String,
     displayPhone: String,
     role: UserRole,
+    profileImageUri: String? = null,
+    onEditProfile: (() -> Unit)? = null,
     id: String? = null,
     status: String? = null,
     tasksAssigned: Int = 0,
@@ -66,6 +73,7 @@ fun ProfileScreen(
     onClearAllData: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val roleLabel = when (role) {
         UserRole.FIELD_OFFICER -> stringResource(R.string.role_field_officer)
         UserRole.SUPERVISOR -> stringResource(R.string.role_supervisor)
@@ -75,46 +83,75 @@ fun ProfileScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .background(MaterialTheme.colorScheme.background)
     ) {
+        // Profile header
+        Text(
+            text = stringResource(R.string.nav_profile),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        )
+        
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val nameToShow = when (role) {
-                UserRole.FIELD_OFFICER -> stringResource(R.string.field_officer_name)
-                UserRole.SUPERVISOR -> stringResource(R.string.supervisor_name)
-                UserRole.TECHNICIAN -> stringResource(R.string.technician_name)
+            val nameToShow = displayName.ifBlank { 
+                when (role) {
+                    UserRole.FIELD_OFFICER -> stringResource(R.string.field_officer_name)
+                    UserRole.SUPERVISOR -> stringResource(R.string.supervisor_name)
+                    UserRole.TECHNICIAN -> stringResource(R.string.technician_name)
+                }
             }
             // Avatar
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 24.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(
-                    modifier = Modifier.size(100.dp),
-                    contentAlignment = Alignment.Center
+            Spacer(modifier = Modifier.weight(0.3f))
+            if (profileImageUri != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(context)
+                            .data(profileImageUri)
+                            .crossfade(true)
+                            .build()
+                    ),
+                    contentDescription = stringResource(R.string.profile_picture),
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Surface(
+                    modifier = Modifier,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    val initial = nameToShow.take(1).uppercase().ifBlank { "" }
-                    if (initial.isNotEmpty()) {
-                        Text(
-                            text = initial,
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                    Box(
+                        modifier = Modifier.size(100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val initial = nameToShow.take(1).uppercase().ifBlank { "" }
+                        if (initial.isNotEmpty()) {
+                            Text(
+                                text = initial,
+                                style = MaterialTheme.typography.headlineLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
             }
@@ -150,13 +187,13 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 ProfileMenuItem(
                     icon = Icons.Default.Edit,
                     title = stringResource(R.string.edit_profile),
-                    onClick = { /* stub */ }
+                    onClick = onEditProfile
                 )
             }
 
@@ -167,7 +204,7 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .padding(bottom = 24.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 ProfileMenuItem(
@@ -205,6 +242,7 @@ fun ProfileScreen(
                     onClick = onLogout
                 )
             }
+            Spacer(modifier = Modifier.weight(0.3f))
         }
     }
 }
@@ -216,7 +254,10 @@ private fun SectionHeader(title: String) {
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        textAlign = TextAlign.Start
     )
 }
 

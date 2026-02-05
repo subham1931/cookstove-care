@@ -26,6 +26,7 @@ object NavRoutes {
     const val EDIT_TECHNICIAN = "edit_technician/{technicianId}"
     fun editTechnician(technicianId: Long) = "edit_technician/$technicianId"
     const val CREATE_TECHNICIAN = "create_technician"
+    const val EDIT_PROFILE = "edit_profile"
 
     fun taskDetail(taskId: Long) = "task_detail/$taskId"
     fun dashboardEdit(taskId: Long) = "dashboard_edit/$taskId"

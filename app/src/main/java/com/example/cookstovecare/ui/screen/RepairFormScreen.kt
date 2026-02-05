@@ -193,6 +193,93 @@ fun RepairFormScreen(
     }
 }
 
+/**
+ * Repair Form content - can be used in a modal or standalone.
+ * Simplified for technicians: only type of repair selection.
+ */
+@Composable
+fun RepairFormContent(
+    viewModel: RepairFormViewModel,
+    onSuccess: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    val errorMessageRes = when (uiState.errorMessage) {
+        "repair_date_before_collection" -> R.string.error_repair_date_before_collection
+        "parts_or_notes_or_type_required" -> R.string.error_type_of_repair_required
+        else -> null
+    }
+
+    LaunchedEffect(uiState.saveSuccess) {
+        if (uiState.saveSuccess) {
+            android.widget.Toast.makeText(
+                context,
+                context.getString(R.string.repair_saved),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            onSuccess()
+        }
+    }
+
+    if (!uiState.taskDataLoaded) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.CircularProgressIndicator()
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Type of Repair (required)
+            Text(
+                text = stringResource(R.string.type_of_repair),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            RepairTypeOfRepairCheckboxes(
+                selectedTypes = uiState.selectedTypesOfRepair,
+                onTypeToggled = { viewModel.toggleTypeOfRepair(it) }
+            )
+
+            if (errorMessageRes != null) {
+                Text(
+                    text = stringResource(errorMessageRes),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    viewModel.submit(
+                        onSuccess = onSuccess,
+                        onError = { }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading
+            ) {
+                if (uiState.isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp).padding(end = 8.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+                Text(stringResource(R.string.submit))
+            }
+        }
+    }
+}
+
 @Composable
 private fun RepairTypeOfRepairCheckboxes(
     selectedTypes: Set<String>,

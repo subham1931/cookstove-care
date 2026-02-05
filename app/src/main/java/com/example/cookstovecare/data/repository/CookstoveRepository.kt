@@ -130,9 +130,7 @@ class CookstoveRepository(
         if (!hasPartsOrNotes && !hasTypesOfRepair) {
             return Result.failure(IllegalArgumentException("parts_or_notes_or_type_required"))
         }
-        if (afterRepairImageUri.isBlank()) {
-            return Result.failure(IllegalArgumentException("images_required"))
-        }
+        // Image is now optional for technicians
         val repairData = RepairData(
             taskId = taskId,
             repairCompletionDate = repairCompletionDate,
@@ -143,7 +141,7 @@ class CookstoveRepository(
             afterRepairImageUri = afterRepairImageUri
         )
         dataStore.insertRepair(repairData)
-        dataStore.updateTaskStatus(taskId, TaskStatus.REPAIR_COMPLETED.name)
+        dataStore.updateTaskStatus(taskId, TaskStatus.REPAIR_COMPLETED.name, completedAt = System.currentTimeMillis())
         return Result.success(Unit)
     }
 
@@ -178,7 +176,7 @@ class CookstoveRepository(
             newCookstoveImageUri = newCookstoveImageUri
         )
         dataStore.insertReplacement(replacementData)
-        dataStore.updateTaskStatus(taskId, TaskStatus.REPLACEMENT_COMPLETED.name)
+        dataStore.updateTaskStatus(taskId, TaskStatus.REPLACEMENT_COMPLETED.name, completedAt = System.currentTimeMillis())
         return Result.success(Unit)
     }
 

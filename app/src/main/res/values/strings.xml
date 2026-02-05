@@ -38,6 +38,7 @@
     <string name="your_current_task_progress">Your current task progress</string>
     <string name="lets_tackle_tasks">Let\'s tackle your tasks</string>
     <string name="filter_all">All</string>
+    <string name="filter_new_task">New Task</string>
     <string name="filter_done">Done</string>
     <string name="select_date">Select a date</string>
     <string name="tasks_assigned">Tasks Assigned</string>
@@ -57,7 +58,7 @@
     <string name="filter_to_do">To do</string>
     <string name="filter_tab_assigned">To Do</string>
     <string name="filter_tab_active">Active</string>
-    <string name="filter_tab_done">Done</string>
+    <string name="filter_tab_done">Completed</string>
     <string name="confirm_complete_task">Complete this task? You will need to fill the repair/replacement form.</string>
     <string name="no_assigned_tasks">No tasks assigned</string>
     <string name="greeting_good_morning">Good morning,</string>
@@ -99,6 +100,7 @@
     <string name="assign_to">Assign to</string>
     <string name="assigned_to">Assigned to %1$s</string>
     <string name="assigned_to_tech">Assigned → %1$s</string>
+    <string name="change">Change</string>
     <string name="not_assigned">Not Assigned</string>
     <string name="filter_by_status">Filter by status</string>
     <string name="filter_by_technician">Filter by technician</string>
@@ -130,6 +132,14 @@
     <string name="back">Back</string>
     <string name="cancel">Cancel</string>
     <string name="logout">Logout</string>
+
+    <!-- Edit Profile -->
+    <string name="profile_name">Name</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="profile_picture">Profile Picture</string>
+    <string name="change_photo">Change Photo</string>
+    <string name="tap_to_change_photo">Tap to change photo</string>
+    <string name="save">Save</string>
 
     <!-- Welcome -->
     <string name="welcome_heading">Cookstove Repair &amp; Replacement</string>
@@ -168,6 +178,7 @@
     <!-- Create Task -->
     <string name="create_task_title">Create New Task</string>
     <string name="customer_name">Customer Name (optional)</string>
+    <string name="auto_filled_from_database">Auto-filled from database</string>
     <string name="received_product_image">Received Product Image</string>
     <string name="type_of_process">Type of Process</string>
     <string name="type_repairing">Repairing</string>

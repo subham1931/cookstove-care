@@ -43,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -224,7 +225,8 @@ fun TaskDetailScreen(
                                             value = dateFormat.format(Date(millis))
                                         )
                                     }
-                                    completionImageUri?.let { uri ->
+                                    // Only show after repair image if it exists and is not blank
+                                    completionImageUri?.takeIf { it.isNotBlank() }?.let { uri ->
                                         Spacer(modifier = Modifier.height(16.dp))
                                         TaskDetailImageRow(
                                             label = stringResource(R.string.after_repair_image_label),
@@ -393,6 +395,7 @@ fun TaskDetailScreen(
                             }
                         } else {
                             val assignedName = uiState.assignedTechnicianName ?: stringResource(R.string.technician_name)
+                            val canChangeTechnician = task.statusEnum == TaskStatus.ASSIGNED
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
@@ -411,8 +414,22 @@ fun TaskDetailScreen(
                                     Text(
                                         text = stringResource(R.string.assigned_to_tech, assignedName),
                                         style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
                                     )
+                                    if (canChangeTechnician) {
+                                        TextButton(
+                                            onClick = onAssignTaskClick
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(stringResource(R.string.change))
+                                        }
+                                    }
                                 }
                             }
                         }

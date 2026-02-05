@@ -15,7 +15,9 @@ class AssignTaskViewModel(
 
     fun assignTo(taskId: Long, technicianId: Long, onAssigned: () -> Unit) {
         viewModelScope.launch {
+            android.util.Log.d("AssignTaskVM", "Assigning task $taskId to technician $technicianId")
             repository.assignTaskToTechnician(taskId, technicianId)
+            android.util.Log.d("AssignTaskVM", "Task $taskId assigned successfully to technician $technicianId")
             onAssigned()
         }
     }

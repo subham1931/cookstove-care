@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -39,18 +39,29 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.cookstovecare.ui.viewmodel.RepairFormViewModelFactory
+import com.example.cookstovecare.ui.viewmodel.ReplacementFormViewModelFactory
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
+import com.example.cookstovecare.ui.theme.AuthGradientStart
+import com.example.cookstovecare.ui.theme.AuthGradientStartDark
 import com.example.cookstovecare.data.TaskStatus
 import com.example.cookstovecare.data.entity.CookstoveTask
 import com.example.cookstovecare.data.entity.Technician
@@ -66,16 +77,14 @@ import java.util.Locale
 
 /** Status filter for technician tasks */
 private enum class TechnicianFilter(val statuses: List<TaskStatus>) {
-    ALL(TaskStatus.entries),
-    TO_DO(listOf(TaskStatus.ASSIGNED)),
-    IN_PROGRESS(listOf(TaskStatus.IN_PROGRESS)),
+    NEW_TASK(listOf(TaskStatus.ASSIGNED)),
+    ACTIVE(listOf(TaskStatus.IN_PROGRESS)),
     COMPLETED(listOf(TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED))
 }
 
 /** Bottom navigation tabs */
 private enum class TechnicianBottomTab(val titleRes: Int) {
     TASKS(R.string.nav_tasks),
-    WORK_SUMMARY(R.string.work_summary),
     PROFILE(R.string.nav_profile)
 }
 
@@ -90,75 +99,33 @@ fun TechnicianDashboardScreen(
     authDataStore: AuthDataStore,
     technicianId: Long,
     onTaskClick: (Long) -> Unit,
-    onCompleteRepair: (Long) -> Unit,
-    onCompleteReplacement: (Long) -> Unit,
+    onEditProfile: () -> Unit = {},
     onLogout: () -> Unit,
     onClearAllData: (() -> Unit)? = null
 ) {
     val assignedTasks by viewModel.assignedTasks.collectAsState(initial = emptyList())
     val technician by viewModel.technicianDetails.collectAsState(initial = null)
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
+    val profileImageUri by authDataStore.profileImageUri.collectAsState(initial = null)
     var selectedTabIndex by remember { mutableStateOf(0) }
-    var selectedBottomTab by remember { mutableStateOf(TechnicianBottomTab.TASKS) }
-    var completeConfirmTask by remember { mutableStateOf<CookstoveTask?>(null) }
+    var selectedBottomTab by rememberSaveable { mutableStateOf(TechnicianBottomTab.TASKS) }
+    
+    // Modal state for repair/replacement forms
+    var repairTaskId by remember { mutableStateOf<Long?>(null) }
+    var replacementTaskId by remember { mutableStateOf<Long?>(null) }
+    val repairSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val replacementSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val selectedFilter = TechnicianFilter.entries[selectedTabIndex]
     val filteredTasks = assignedTasks.filter { task ->
         task.statusEnum in selectedFilter.statuses
     }
 
-    if (completeConfirmTask != null) {
-        val task = completeConfirmTask!!
-        AlertDialog(
-            onDismissRequest = { completeConfirmTask = null },
-            title = { Text(stringResource(R.string.complete)) },
-            text = { Text(stringResource(R.string.confirm_complete_task)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        completeConfirmTask = null
-                        when (task.typeOfProcess) {
-                            "REPLACEMENT" -> onCompleteReplacement(task.id)
-                            else -> onCompleteRepair(task.id)
-                        }
-                    }
-                ) {
-                    Text(stringResource(R.string.complete), color = MaterialTheme.colorScheme.primary)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { completeConfirmTask = null }) {
-                    Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        )
-    }
-
     val displayName = technician?.name?.takeIf { it.isNotBlank() } ?: phoneNumber.ifBlank { stringResource(R.string.nav_profile) }
 
     Scaffold(
         topBar = {
-            when (selectedBottomTab) {
-                TechnicianBottomTab.WORK_SUMMARY -> TopAppBar(
-                    title = {
-                        Text(
-                            text = stringResource(R.string.work_summary),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    }
-                )
-                TechnicianBottomTab.PROFILE -> TopAppBar(
-                    title = {
-                        Text(
-                            text = stringResource(R.string.nav_profile),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    }
-                )
-                else -> { /* Tasks: no top bar, greeting in content */ }
-            }
+            /* Profile screen provides its own header, Tasks has greeting in content */
         },
         bottomBar = {
             NavigationBar {
@@ -170,7 +137,6 @@ fun TechnicianDashboardScreen(
                             Icon(
                                 imageVector = when (tab) {
                                     TechnicianBottomTab.TASKS -> Icons.Default.Assignment
-                                    TechnicianBottomTab.WORK_SUMMARY -> Icons.Default.Assessment
                                     TechnicianBottomTab.PROFILE -> Icons.Default.Person
                                 },
                                 contentDescription = stringResource(tab.titleRes)
@@ -184,28 +150,32 @@ fun TechnicianDashboardScreen(
     ) { innerPadding ->
         when (selectedBottomTab) {
             TechnicianBottomTab.TASKS -> {
+                val todoCount = assignedTasks.count { it.statusEnum == TaskStatus.ASSIGNED }
+                val inProgressCount = assignedTasks.count { it.statusEnum == TaskStatus.IN_PROGRESS }
+                val doneCount = assignedTasks.count {
+                    it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+                }
                 TechnicianTaskScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding),
                     greetingText = getGreetingText(),
-                    technicianId = technicianId,
+                    technicianName = displayName,
                     selectedTabIndex = selectedTabIndex,
                     onTabSelected = { selectedTabIndex = it },
                     filteredTasks = filteredTasks,
+                    todoCount = todoCount,
+                    inProgressCount = inProgressCount,
+                    doneCount = doneCount,
                     onTaskClick = onTaskClick,
                     onStart = { viewModel.moveToInProgress(it) },
-                    onComplete = { completeConfirmTask = it }
-                )
-            }
-            TechnicianBottomTab.WORK_SUMMARY -> {
-                TechnicianWorkSummaryScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    assignedTasks = assignedTasks,
-                    repository = repository,
-                    onTaskClick = onTaskClick
+                    onComplete = { task ->
+                        // Show the form in a modal
+                        when (task.typeOfProcess) {
+                            "REPLACEMENT" -> replacementTaskId = task.id
+                            else -> repairTaskId = task.id
+                        }
+                    }
                 )
             }
             TechnicianBottomTab.PROFILE -> {
@@ -221,6 +191,8 @@ fun TechnicianDashboardScreen(
                     displayName = technician?.name?.takeIf { it.isNotBlank() } ?: phoneNumber.ifBlank { stringResource(R.string.nav_profile) },
                     displayPhone = technician?.phoneNumber?.takeIf { it.isNotBlank() } ?: phoneNumber,
                     role = com.example.cookstovecare.data.UserRole.TECHNICIAN,
+                    profileImageUri = profileImageUri,
+                    onEditProfile = onEditProfile,
                     id = if (technicianId > 0) technicianId.toString() else null,
                     status = technician?.let { if (it.isActive) stringResource(R.string.active) else stringResource(R.string.inactive) },
                     tasksAssigned = assignedCount,
@@ -229,6 +201,64 @@ fun TechnicianDashboardScreen(
                     showWorkSummary = false,
                     onLogout = onLogout,
                     onClearAllData = onClearAllData
+                )
+            }
+        }
+    }
+    
+    // Repair Form Modal
+    if (repairTaskId != null) {
+        val repairViewModel: com.example.cookstovecare.ui.viewmodel.RepairFormViewModel = viewModel(
+            factory = RepairFormViewModelFactory(repository, repairTaskId!!),
+            key = "repair_$repairTaskId"
+        )
+        ModalBottomSheet(
+            onDismissRequest = { repairTaskId = null },
+            sheetState = repairSheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.repair_form_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                RepairFormContent(
+                    viewModel = repairViewModel,
+                    onSuccess = { repairTaskId = null }
+                )
+            }
+        }
+    }
+    
+    // Replacement Form Modal
+    if (replacementTaskId != null) {
+        val replacementViewModel: com.example.cookstovecare.ui.viewmodel.ReplacementFormViewModel = viewModel(
+            factory = ReplacementFormViewModelFactory(repository, replacementTaskId!!),
+            key = "replacement_$replacementTaskId"
+        )
+        ModalBottomSheet(
+            onDismissRequest = { replacementTaskId = null },
+            sheetState = replacementSheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.replacement_form_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                ReplacementFormContent(
+                    viewModel = replacementViewModel,
+                    onSuccess = { replacementTaskId = null }
                 )
             }
         }
@@ -255,10 +285,13 @@ private fun getGreetingText(): String {
 private fun TechnicianTaskScreen(
     modifier: Modifier = Modifier,
     greetingText: String,
-    technicianId: Long,
+    technicianName: String,
     selectedTabIndex: Int,
     onTabSelected: (Int) -> Unit,
     filteredTasks: List<CookstoveTask>,
+    todoCount: Int,
+    inProgressCount: Int,
+    doneCount: Int,
     onTaskClick: (Long) -> Unit,
     onStart: (Long) -> Unit,
     onComplete: (CookstoveTask) -> Unit
@@ -266,11 +299,14 @@ private fun TechnicianTaskScreen(
     Column(modifier = modifier) {
         GreetingHeader(
             greetingText = greetingText,
-            technicianId = technicianId
+            technicianName = technicianName
         )
         TaskStatusTabs(
             selectedIndex = selectedTabIndex,
-            onTabSelected = onTabSelected
+            onTabSelected = onTabSelected,
+            todoCount = todoCount,
+            inProgressCount = inProgressCount,
+            doneCount = doneCount
         )
         if (filteredTasks.isEmpty()) {
             Box(
@@ -300,87 +336,104 @@ private fun TechnicianTaskScreen(
     }
 }
 
-/** Header: greeting, role, technician ID. Left aligned, 16–20dp padding. */
+/** Purple styled header with greeting, name, and subtitle. */
 @Composable
 private fun GreetingHeader(
     greetingText: String,
-    technicianId: Long
+    technicianName: String
 ) {
-    Column(
+    val isDark = isSystemInDarkTheme()
+    val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
+    
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .clip(
+                RoundedCornerShape(
+                    bottomStart = 32.dp,
+                    bottomEnd = 32.dp
+                )
+            )
+            .background(headerColor)
     ) {
-        Text(
-            text = greetingText,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = stringResource(R.string.role_technician),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        if (technicianId > 0) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 24.dp)
+        ) {
             Text(
-                text = stringResource(R.string.profile_technician_id) + " $technicianId",
+                text = greetingText,
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White
+            )
+            Text(
+                text = technicianName,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.lets_tackle_tasks),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color.White.copy(alpha = 0.9f)
             )
         }
     }
 }
 
-/** Segmented-control style tabs. Rounded container, no underline. */
+/** Segmented-control style tabs. Dark rounded container with purple selected state. */
 @Composable
 private fun TaskStatusTabs(
     selectedIndex: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    todoCount: Int,
+    inProgressCount: Int,
+    doneCount: Int
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = androidx.compose.ui.graphics.Color(0xFF2A2A2A)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
                 .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             TechnicianFilter.entries.forEachIndexed { index, filter ->
                 val isSelected = selectedIndex == index
+                val (label, count) = when (filter) {
+                    TechnicianFilter.NEW_TASK -> stringResource(R.string.filter_to_do) to todoCount
+                    TechnicianFilter.ACTIVE -> stringResource(R.string.in_progress_tasks) to inProgressCount
+                    TechnicianFilter.COMPLETED -> stringResource(R.string.filter_tab_done) to doneCount
+                }
                 Surface(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(2.dp),
-                    shape = RoundedCornerShape(12.dp),
+                        .weight(1f),
+                    shape = RoundedCornerShape(20.dp),
                     color = if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer
+                        MaterialTheme.colorScheme.primary
                     } else {
                         androidx.compose.ui.graphics.Color.Transparent
                     },
                     onClick = { onTabSelected(index) }
                 ) {
                     Text(
-                        text = when (filter) {
-                            TechnicianFilter.ALL -> stringResource(R.string.filter_all)
-                            TechnicianFilter.TO_DO -> stringResource(R.string.filter_tab_assigned)
-                            TechnicianFilter.IN_PROGRESS -> stringResource(R.string.filter_tab_active)
-                            TechnicianFilter.COMPLETED -> stringResource(R.string.filter_tab_done)
-                        },
+                        text = "$label $count",
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
+                            MaterialTheme.colorScheme.onPrimary
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f)
                         }
                     )
                 }
@@ -423,11 +476,11 @@ private fun TechnicianTaskCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Top row: Cookstove number (left), Status chip (right)
+            // Top row: Cookstove number (left), Status chip with completion date (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Text(
                     text = task.cookstoveNumber,
@@ -435,7 +488,20 @@ private fun TechnicianTaskCard(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                TaskStatusChip(status = task.statusEnum)
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+                    TaskStatusChip(status = task.statusEnum)
+                    // Show completion date for completed tasks
+                    if (isCompleted && task.completedAt != null) {
+                        Text(
+                            text = dateFormat.format(Date(task.completedAt)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
             }
             // Middle row: Task type chip, Spacer, Collection date
             Row(

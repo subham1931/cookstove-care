@@ -21,7 +21,8 @@ private data class RegisteredUser(
     val phoneNumber: String,
     val password: String,
     val centerName: String? = null,
-    val role: String = UserRole.FIELD_OFFICER.name
+    val role: String = UserRole.FIELD_OFFICER.name,
+    val profileImageUri: String? = null
 )
 
 /**
@@ -37,6 +38,7 @@ class AuthDataStore(private val context: Context) {
     private val centerNameKey = stringPreferencesKey("center_name")
     private val userRoleKey = stringPreferencesKey("user_role")
     private val technicianIdKey = stringPreferencesKey("technician_id")
+    private val profileImageUriKey = stringPreferencesKey("profile_image_uri")
     private val registeredUsersKey = stringPreferencesKey("registered_users")
 
     val isLoggedIn: Flow<Boolean> = context.authDataStore.data.map { prefs ->
@@ -64,6 +66,10 @@ class AuthDataStore(private val context: Context) {
         }
     }
 
+    val profileImageUri: Flow<String?> = context.authDataStore.data.map { prefs ->
+        prefs[profileImageUriKey]
+    }
+
     suspend fun setLoggedIn(phoneNumber: String, centerName: String? = null, role: UserRole = UserRole.FIELD_OFFICER, technicianId: Long? = null) {
         context.authDataStore.edit { prefs ->
             prefs[isLoggedInKey] = true
@@ -85,6 +91,21 @@ class AuthDataStore(private val context: Context) {
             prefs.remove(centerNameKey)
             prefs.remove(userRoleKey)
             prefs.remove(technicianIdKey)
+            prefs.remove(profileImageUriKey)
+        }
+    }
+
+    /**
+     * Update the current user's profile information.
+     */
+    suspend fun updateProfile(centerName: String, profileImageUri: String?) {
+        context.authDataStore.edit { prefs ->
+            prefs[centerNameKey] = centerName
+            if (profileImageUri != null) {
+                prefs[profileImageUriKey] = profileImageUri
+            } else {
+                prefs.remove(profileImageUriKey)
+            }
         }
     }
 

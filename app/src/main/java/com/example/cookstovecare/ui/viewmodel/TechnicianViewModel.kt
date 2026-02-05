@@ -16,7 +16,13 @@ class TechnicianViewModel(
 
     val assignedTasks: Flow<List<com.example.cookstovecare.data.entity.CookstoveTask>> =
         repository.getAllTasks().map { tasks ->
-            tasks.filter { it.assignedToTechnicianId == technicianId }
+            android.util.Log.d("TechnicianVM", "TechnicianId: $technicianId, All tasks: ${tasks.size}")
+            tasks.forEach { task ->
+                android.util.Log.d("TechnicianVM", "Task ${task.id}: assignedTo=${task.assignedToTechnicianId}, status=${task.status}")
+            }
+            val filtered = tasks.filter { it.assignedToTechnicianId == technicianId }
+            android.util.Log.d("TechnicianVM", "Filtered tasks for technician $technicianId: ${filtered.size}")
+            filtered
         }
 
     val technicianDetails: Flow<com.example.cookstovecare.data.entity.Technician?> =

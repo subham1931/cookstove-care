@@ -77,7 +77,13 @@ class AuthViewModel(
                 _uiState.value = state.copy(isLoading = true, error = null)
                 viewModelScope.launch {
                     val techId = if (state.selectedRole == UserRole.TECHNICIAN) {
-                        repository.getTechnicianByPhoneNumber(phone)?.id
+                        val technician = repository.getTechnicianByPhoneNumber(phone)
+                        android.util.Log.d("AuthVM", "Looking up technician by phone '$phone': found=${technician != null}, id=${technician?.id}")
+                        if (technician == null) {
+                            // Technician not found - they need to be created by supervisor first
+                            android.util.Log.w("AuthVM", "No technician found with phone '$phone'. Supervisor must create technician first.")
+                        }
+                        technician?.id
                     } else null
                     authDataStore.setLoggedIn(phoneNumber = phone, role = state.selectedRole, technicianId = techId)
                     _uiState.value = state.copy(isLoading = false)
