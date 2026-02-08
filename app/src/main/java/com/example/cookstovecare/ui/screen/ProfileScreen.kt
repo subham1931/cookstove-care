@@ -82,6 +82,7 @@ fun ProfileScreen(
         UserRole.FIELD_OFFICER -> stringResource(R.string.role_field_officer)
         UserRole.SUPERVISOR -> stringResource(R.string.role_supervisor)
         UserRole.TECHNICIAN -> stringResource(R.string.role_technician)
+        UserRole.FIELD_COORDINATOR -> stringResource(R.string.role_field_coordinator)
     }
 
     val isDark = isSystemInDarkTheme()
@@ -125,6 +126,7 @@ fun ProfileScreen(
                     UserRole.FIELD_OFFICER -> stringResource(R.string.field_officer_name)
                     UserRole.SUPERVISOR -> stringResource(R.string.supervisor_name)
                     UserRole.TECHNICIAN -> stringResource(R.string.technician_name)
+                    UserRole.FIELD_COORDINATOR -> stringResource(R.string.field_coordinator_name)
                 }
             }
             // Avatar

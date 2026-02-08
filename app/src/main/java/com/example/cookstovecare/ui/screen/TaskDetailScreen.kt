@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -107,6 +109,10 @@ fun TaskDetailScreen(
     val completeOrderImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { completeOrderImageUri = it } }
+    
+    // Status timeline bottom sheet state
+    var showStatusTimeline by remember { mutableStateOf(false) }
+    val statusTimelineSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(Unit) {
         viewModel.refresh()
@@ -334,7 +340,8 @@ fun TaskDetailScreen(
                                             TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
                                         },
                                         isStatus = true,
-                                        statusEnum = task.statusEnum
+                                        statusEnum = task.statusEnum,
+                                        onClick = { showStatusTimeline = true }
                                     )
                                 }
                                 if (repairData != null) {
@@ -360,25 +367,6 @@ fun TaskDetailScreen(
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
                                     }
-                                    completionDate?.let { millis ->
-                                        OfficeDataItem(
-                                            icon = Icons.Default.CalendarToday,
-                                            label = if (repairData != null) stringResource(R.string.repair_completion_date)
-                                            else stringResource(R.string.replacement_date),
-                                            value = dateFormat.format(Date(millis))
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                    }
-                                    // Show completion image only for non-Field Officers, or when order is distributed
-                                    if (userRole != UserRole.FIELD_OFFICER || task.distributionDate != null) {
-                                        completionImageUri?.let { uri ->
-                                            TaskDetailImageRow(
-                                                label = stringResource(R.string.completion_image),
-                                                imageUri = uri
-                                            )
-                                        }
-                                    }
-                                    
                                     // Distribution date and image (for Field Officer after completing order)
                                     task.distributionDate?.let { millis ->
                                         Spacer(modifier = Modifier.height(16.dp))
@@ -619,6 +607,26 @@ fun TaskDetailScreen(
             }
         }
     }
+    
+    // Status Timeline Modal
+    if (showStatusTimeline) {
+        val task = uiState.task
+        if (task != null) {
+            ModalBottomSheet(
+                onDismissRequest = { showStatusTimeline = false },
+                sheetState = statusTimelineSheetState
+            ) {
+                StatusTimelineContent(
+                    currentStatus = task.statusEnum,
+                    collectionDate = task.collectionDate,
+                    isAssigned = task.assignedToTechnicianId != null,
+                    workStartedAt = task.workStartedAt,
+                    completedAt = task.completedAt,
+                    distributionDate = task.distributionDate
+                )
+            }
+        }
+    }
 }
 
 private val TYPE_OF_REPAIR_OPTIONS = listOf(
@@ -777,10 +785,15 @@ private fun OfficeDataItem(
     label: String,
     value: String,
     isStatus: Boolean = false,
-    statusEnum: TaskStatus? = null
+    statusEnum: TaskStatus? = null,
+    onClick: (() -> Unit)? = null
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null) Modifier.clickable { onClick() } else Modifier
+            ),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
     ) {
@@ -830,6 +843,178 @@ private fun OfficeDataItem(
                         fontWeight = FontWeight.Medium
                     )
                 }
+            }
+            // Arrow indicator for clickable items
+            if (onClick != null) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/** Flipkart-style status timeline content */
+@Composable
+private fun StatusTimelineContent(
+    currentStatus: TaskStatus,
+    collectionDate: Long,
+    isAssigned: Boolean,
+    workStartedAt: Long?,
+    completedAt: Long?,
+    distributionDate: Long?
+) {
+    val dateTimeFormat = SimpleDateFormat("EEE, d MMM ''yy - h:mma", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("EEE, d MMM ''yy", Locale.getDefault())
+    
+    // Define status steps
+    val steps = listOf(
+        TimelineStep(
+            title = stringResource(R.string.timeline_order_created),
+            isCompleted = true, // Always completed if task exists
+            date = dateFormat.format(Date(collectionDate)),
+            description = stringResource(R.string.timeline_order_collected)
+        ),
+        TimelineStep(
+            title = stringResource(R.string.status_assigned),
+            isCompleted = currentStatus.ordinal >= TaskStatus.ASSIGNED.ordinal,
+            date = if (isAssigned) stringResource(R.string.timeline_technician_assigned) else null,
+            description = if (isAssigned) stringResource(R.string.timeline_assigned_desc) else null
+        ),
+        TimelineStep(
+            title = stringResource(R.string.status_processing),
+            isCompleted = currentStatus.ordinal >= TaskStatus.IN_PROGRESS.ordinal,
+            date = workStartedAt?.let { dateTimeFormat.format(Date(it)) },
+            description = if (workStartedAt != null) stringResource(R.string.timeline_processing_desc) else null
+        ),
+        TimelineStep(
+            title = stringResource(R.string.status_repaired),
+            isCompleted = currentStatus.ordinal >= TaskStatus.REPAIR_COMPLETED.ordinal || 
+                         currentStatus == TaskStatus.REPLACEMENT_COMPLETED,
+            date = completedAt?.let { dateTimeFormat.format(Date(it)) },
+            description = if (completedAt != null) stringResource(R.string.timeline_repaired_desc) else null
+        ),
+        TimelineStep(
+            title = stringResource(R.string.status_distributed),
+            isCompleted = currentStatus == TaskStatus.DISTRIBUTED,
+            date = distributionDate?.let { dateTimeFormat.format(Date(it)) },
+            description = if (distributionDate != null) stringResource(R.string.timeline_distributed_desc) else null
+        )
+    )
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.order_tracking),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+        
+        steps.forEachIndexed { index, step ->
+            TimelineStepRow(
+                step = step,
+                isLast = index == steps.lastIndex
+            )
+        }
+    }
+}
+
+private data class TimelineStep(
+    val title: String,
+    val isCompleted: Boolean,
+    val date: String?,
+    val description: String?
+)
+
+@Composable
+private fun TimelineStepRow(
+    step: TimelineStep,
+    isLast: Boolean
+) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        // Timeline indicator column
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(32.dp)
+        ) {
+            // Circle indicator
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .background(
+                        color = if (step.isCompleted) SuccessGreen else MaterialTheme.colorScheme.outlineVariant,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (step.isCompleted) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color.White, CircleShape)
+                    )
+                }
+            }
+            
+            // Vertical line (except for last item)
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(if (step.description != null) 80.dp else 40.dp)
+                        .background(
+                            if (step.isCompleted) SuccessGreen else MaterialTheme.colorScheme.outlineVariant
+                        )
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        // Content column
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(bottom = if (isLast) 0.dp else 16.dp)
+        ) {
+            // Title with date
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = step.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (step.isCompleted) FontWeight.Bold else FontWeight.Normal,
+                    color = if (step.isCompleted) MaterialTheme.colorScheme.onSurface 
+                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+                if (step.date != null && step.isCompleted) {
+                    Text(
+                        text = step.date,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            // Description
+            if (step.description != null && step.isCompleted) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = step.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

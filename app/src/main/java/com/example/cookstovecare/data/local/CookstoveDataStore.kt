@@ -286,7 +286,8 @@ private data class CookstoveTaskDto(
     val completedAt: Long? = null,
     val distributionDate: Long? = null,
     val distributionImageUri: String? = null,
-    val createdAt: Long
+    val createdAt: Long,
+    val createdByFieldOfficer: String? = null
 ) {
     fun toEntity() = CookstoveTask(
         id = id,
@@ -303,7 +304,8 @@ private data class CookstoveTaskDto(
         completedAt = completedAt,
         distributionDate = distributionDate,
         distributionImageUri = distributionImageUri,
-        createdAt = createdAt
+        createdAt = createdAt,
+        createdByFieldOfficer = createdByFieldOfficer
     )
     companion object {
         fun from(t: CookstoveTask) = CookstoveTaskDto(
@@ -321,7 +323,8 @@ private data class CookstoveTaskDto(
             completedAt = t.completedAt,
             distributionDate = t.distributionDate,
             distributionImageUri = t.distributionImageUri,
-            createdAt = t.createdAt
+            createdAt = t.createdAt,
+            createdByFieldOfficer = t.createdByFieldOfficer
         )
     }
 }

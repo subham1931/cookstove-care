@@ -39,6 +39,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,12 +73,15 @@ private enum class FilterMode {
 fun SupervisorTaskListScreen(
     viewModel: SupervisorTaskListViewModel,
     displayName: String,
-    onTaskClick: (Long) -> Unit,
+    onTaskClick: (Long, Int) -> Unit,  // taskId, filterModeIndex
     onAssignTask: (Long) -> Unit = {},
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    initialFilterIndex: Int = 0
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
-    var filterMode by remember { mutableStateOf(FilterMode.ORDERS) }
+    var filterMode by rememberSaveable { 
+        mutableStateOf(if (initialFilterIndex in FilterMode.entries.indices) FilterMode.entries[initialFilterIndex] else FilterMode.ORDERS) 
+    }
     val isDark = isSystemInDarkTheme()
     val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
 
@@ -255,7 +259,7 @@ fun SupervisorTaskListScreen(
                     SupervisorTaskCard(
                         task = task,
                         dateFormat = dateFormat,
-                        onClick = { onTaskClick(task.id) },
+                        onClick = { onTaskClick(task.id, filterMode.ordinal) },
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
                 }

@@ -3,10 +3,12 @@ package com.example.cookstovecare.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.cookstovecare.data.local.AuthDataStore
 import com.example.cookstovecare.data.repository.CookstoveRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -27,7 +29,8 @@ data class CreateTaskUiState(
 )
 
 class CreateTaskViewModel(
-    private val repository: CookstoveRepository
+    private val repository: CookstoveRepository,
+    private val authDataStore: AuthDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateTaskUiState())
@@ -109,12 +112,15 @@ class CreateTaskViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             repository.clearCompletedData()
             val state = _uiState.value
+            // Get the current user's phone number to track who created the task
+            val currentUserPhone = authDataStore.phoneNumber.first()
             val result = repository.createTask(
                 cookstoveNumber = state.cookstoveNumber,
                 customerName = state.customerName.ifBlank { null },
                 collectionDate = state.collectionDateMillis,
                 receivedProductImageUri = state.receivedProductImageUri,
-                typeOfProcess = state.typeOfProcess
+                typeOfProcess = state.typeOfProcess,
+                createdByFieldOfficer = currentUserPhone.takeIf { it.isNotBlank() }
             )
             _uiState.value = _uiState.value.copy(isLoading = false)
             result.fold(
@@ -136,12 +142,13 @@ class CreateTaskViewModel(
 }
 
 class CreateTaskViewModelFactory(
-    private val repository: CookstoveRepository
+    private val repository: CookstoveRepository,
+    private val authDataStore: AuthDataStore
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CreateTaskViewModel::class.java)) {
-            return CreateTaskViewModel(repository) as T
+            return CreateTaskViewModel(repository, authDataStore) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

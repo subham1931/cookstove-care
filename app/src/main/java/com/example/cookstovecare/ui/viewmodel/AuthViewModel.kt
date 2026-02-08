@@ -85,6 +85,15 @@ class AuthViewModel(
                         }
                         technician?.id
                     } else null
+                    
+                    // Register or update user with role (so they appear in lists)
+                    authDataStore.registerOrUpdateUser(
+                        phoneNumber = phone,
+                        password = password,
+                        centerName = null,
+                        role = state.selectedRole
+                    )
+                    
                     authDataStore.setLoggedIn(phoneNumber = phone, role = state.selectedRole, technicianId = techId)
                     _uiState.value = state.copy(isLoading = false)
                     onSuccess(state.selectedRole)

@@ -6,5 +6,6 @@ package com.example.cookstovecare.data
 enum class UserRole {
     FIELD_OFFICER,
     SUPERVISOR,
-    TECHNICIAN
+    TECHNICIAN,
+    FIELD_COORDINATOR
 }

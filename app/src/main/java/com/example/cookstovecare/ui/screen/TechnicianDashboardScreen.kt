@@ -25,6 +25,9 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
@@ -486,6 +489,9 @@ private fun TechnicianTaskCard(
         else -> SuccessGreen
     }
 
+    val isDark = isSystemInDarkTheme()
+    val primaryColor = if (isDark) AuthGradientStartDark else AuthGradientStart
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -500,70 +506,126 @@ private fun TechnicianTaskCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         onClick = onClick
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            // Left side: Product image
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (task.receivedProductImageUri != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(task.receivedProductImageUri)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                // Left side: Product image
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (task.receivedProductImageUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(task.receivedProductImageUri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.AddPhotoAlternate,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // Middle: Cookstove number
+                Text(
+                    text = task.cookstoveNumber,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Right side: Status and date
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+                    // Status text
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor
                     )
-                } else {
-                    Icon(
-                        Icons.Default.AddPhotoAlternate,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
+                    // Show completed date for completed tasks
+                    if (isCompleted && task.completedAt != null) {
+                        Text(
+                            text = dateFormat.format(Date(task.completedAt)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                 }
             }
             
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Middle: Cookstove number
-            Text(
-                text = task.cookstoveNumber,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-            
-            // Right side: Status and date
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
-                // Status text
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = statusColor
-                )
-                // Show completed date for completed tasks
-                if (isCompleted && task.completedAt != null) {
-                    Text(
-                        text = dateFormat.format(Date(task.completedAt)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+            // Action buttons for non-completed tasks
+            if (!isCompleted) {
+                Spacer(modifier = Modifier.height(12.dp))
+                when (task.statusEnum) {
+                    TaskStatus.ASSIGNED -> {
+                        Button(
+                            onClick = onStart,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primaryColor
+                            ),
+                            contentPadding = PaddingValues(vertical = 12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.start_task),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    TaskStatus.IN_PROGRESS -> {
+                        Button(
+                            onClick = onComplete,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SuccessGreen
+                            ),
+                            contentPadding = PaddingValues(vertical = 12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.complete_task),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    else -> {}
                 }
             }
         }

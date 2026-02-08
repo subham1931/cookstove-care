@@ -125,7 +125,7 @@ fun DashboardScreen(
     var showTaskCreatedSuccess by remember { mutableStateOf(false) }
     var editTaskId by remember(initialEditTaskId) { mutableStateOf<Long?>(initialEditTaskId) }
     val createTaskViewModel: CreateTaskViewModel = viewModel(
-        factory = CreateTaskViewModelFactory(repository)
+        factory = CreateTaskViewModelFactory(repository, authDataStore)
     )
     val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)

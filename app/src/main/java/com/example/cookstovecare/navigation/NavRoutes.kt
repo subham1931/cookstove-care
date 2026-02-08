@@ -12,6 +12,7 @@ object NavRoutes {
     const val FIELD_OFFICER_DASHBOARD = "field_officer_dashboard"
     const val SUPERVISOR_DASHBOARD = "supervisor_dashboard"
     const val TECHNICIAN_DASHBOARD = "technician_dashboard"
+    const val FIELD_COORDINATOR_DASHBOARD = "field_coordinator_dashboard"
     const val DASHBOARD_EDIT = "dashboard_edit/{taskId}"
     const val TASK_DETAIL = "task_detail/{taskId}"
     const val REPAIR_FORM = "repair_form/{taskId}"

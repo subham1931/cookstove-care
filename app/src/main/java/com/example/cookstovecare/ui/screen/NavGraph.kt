@@ -65,6 +65,7 @@ fun CookstoveCareNavGraph(
         isLoggedIn != true -> NavRoutes.WELCOME
         userRole == UserRole.SUPERVISOR -> NavRoutes.SUPERVISOR_DASHBOARD
         userRole == UserRole.TECHNICIAN -> NavRoutes.TECHNICIAN_DASHBOARD
+        userRole == UserRole.FIELD_COORDINATOR -> NavRoutes.FIELD_COORDINATOR_DASHBOARD
         else -> NavRoutes.FIELD_OFFICER_DASHBOARD
     }
 
@@ -96,6 +97,7 @@ fun CookstoveCareNavGraph(
                                 val dest = when (role) {
                                     UserRole.SUPERVISOR -> NavRoutes.SUPERVISOR_DASHBOARD
                                     UserRole.TECHNICIAN -> NavRoutes.TECHNICIAN_DASHBOARD
+                                    UserRole.FIELD_COORDINATOR -> NavRoutes.FIELD_COORDINATOR_DASHBOARD
                                     else -> NavRoutes.FIELD_OFFICER_DASHBOARD
                                 }
                                 navController.navigate(dest) { popUpTo(NavRoutes.WELCOME) { inclusive = true } }
@@ -147,7 +149,7 @@ fun CookstoveCareNavGraph(
                         SupervisorTaskListScreen(
                             viewModel = viewModel,
                             displayName = displayName,
-                            onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
+                            onTaskClick = { taskId, _ -> navController.navigate(NavRoutes.taskDetail(taskId)) },
                             onAssignTask = { taskId -> navController.navigate(NavRoutes.assignTask(taskId)) },
                             onBack = { navController.popBackStack() }
                         )
@@ -163,6 +165,22 @@ fun CookstoveCareNavGraph(
                             repository = repository,
                             authDataStore = app.authDataStore,
                             technicianId = techId,
+                            onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
+                            onEditProfile = { navController.navigate(NavRoutes.EDIT_PROFILE) },
+                            onLogout = { scope.launch { app.authDataStore.logout() } },
+                            onClearAllData = { scope.launch { repository.clearAllData() } }
+                        )
+                    }
+
+                    composable(NavRoutes.FIELD_COORDINATOR_DASHBOARD) {
+                        val viewModel: com.example.cookstovecare.ui.viewmodel.SupervisorViewModel = viewModel(
+                            factory = SupervisorViewModelFactory(repository)
+                        )
+                        FieldCoordinatorDashboardScreen(
+                            viewModel = viewModel,
+                            repository = repository,
+                            authDataStore = app.authDataStore,
+                            navController = navController,
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
                             onEditProfile = { navController.navigate(NavRoutes.EDIT_PROFILE) },
                             onLogout = { scope.launch { app.authDataStore.logout() } },
@@ -202,6 +220,7 @@ fun CookstoveCareNavGraph(
                         val backToDashboard = when (userRole) {
                             UserRole.SUPERVISOR -> NavRoutes.SUPERVISOR_DASHBOARD
                             UserRole.TECHNICIAN -> NavRoutes.TECHNICIAN_DASHBOARD
+                            UserRole.FIELD_COORDINATOR -> NavRoutes.FIELD_COORDINATOR_DASHBOARD
                             else -> NavRoutes.FIELD_OFFICER_DASHBOARD
                         }
                         TaskDetailScreen(
@@ -223,9 +242,6 @@ fun CookstoveCareNavGraph(
                                 }
                             } else null,
                             onBack = {
-                                if (userRole == UserRole.SUPERVISOR) {
-                                    navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", 0)
-                                }
                                 if (!navController.popBackStack()) {
                                     navController.navigate(backToDashboard) {
                                         popUpTo(backToDashboard) { inclusive = true }

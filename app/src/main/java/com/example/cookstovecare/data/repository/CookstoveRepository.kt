@@ -91,7 +91,8 @@ class CookstoveRepository(
         customerName: String?,
         collectionDate: Long,
         receivedProductImageUri: String? = null,
-        typeOfProcess: String? = null
+        typeOfProcess: String? = null,
+        createdByFieldOfficer: String? = null
     ): Result<Long> {
         val trimmedNumber = cookstoveNumber.trim()
         if (trimmedNumber.isEmpty()) {
@@ -106,7 +107,8 @@ class CookstoveRepository(
             collectionDate = collectionDate,
             status = TaskStatus.COLLECTED.name,
             receivedProductImageUri = receivedProductImageUri?.takeIf { it.isNotBlank() },
-            typeOfProcess = typeOfProcess?.takeIf { it.isNotBlank() }
+            typeOfProcess = typeOfProcess?.takeIf { it.isNotBlank() },
+            createdByFieldOfficer = createdByFieldOfficer
         )
         val id = dataStore.insertTask(task)
         return Result.success(id)

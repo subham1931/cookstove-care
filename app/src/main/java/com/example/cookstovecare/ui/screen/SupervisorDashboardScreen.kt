@@ -110,12 +110,17 @@ fun SupervisorDashboardScreen(
     val profileImageUri by authDataStore.profileImageUri.collectAsState(initial = null)
     val userRole by authDataStore.userRole.collectAsState(initial = UserRole.SUPERVISOR)
     var selectedBottomTab by rememberSaveable { mutableStateOf(SupervisorTab.TASKS) }
+    var homeFilterIndex by rememberSaveable { mutableStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.get<Int>("returnTab")?.let { tabOrdinal ->
             if (tabOrdinal in SupervisorTab.entries.indices) {
                 selectedBottomTab = SupervisorTab.entries[tabOrdinal]
             }
             navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.remove<Int>("returnTab")
+        }
+        navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.get<Int>("returnFilterIndex")?.let { filterIndex ->
+            homeFilterIndex = filterIndex
+            navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.remove<Int>("returnFilterIndex")
         }
     }
     val displayName = centerName.ifBlank { phoneNumber }.ifBlank { stringResource(R.string.nav_profile) }
@@ -157,15 +162,24 @@ fun SupervisorDashboardScreen(
                 SupervisorTaskListScreen(
                     viewModel = taskListViewModel,
                     displayName = displayName,
-                    onTaskClick = onTaskClick,
+                    onTaskClick = { taskId, filterIndex ->
+                        navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", SupervisorTab.TASKS.ordinal)
+                        navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnFilterIndex", filterIndex)
+                        homeFilterIndex = filterIndex
+                        onTaskClick(taskId)
+                    },
                     onAssignTask = { taskId -> navController.navigate(NavRoutes.assignTask(taskId)) },
-                    onBack = null
+                    onBack = null,
+                    initialFilterIndex = homeFilterIndex
                 )
             }
             SupervisorTab.WORK_SUMMARY -> {
                 SupervisorWorkSummaryContent(
                     tasks = tasks,
-                    onTaskClick = onTaskClick,
+                    onTaskClick = { taskId ->
+                        navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", SupervisorTab.WORK_SUMMARY.ordinal)
+                        onTaskClick(taskId)
+                    },
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)

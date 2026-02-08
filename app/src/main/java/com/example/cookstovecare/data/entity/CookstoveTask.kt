@@ -21,7 +21,8 @@ data class CookstoveTask(
     val completedAt: Long? = null,
     val distributionDate: Long? = null,
     val distributionImageUri: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val createdByFieldOfficer: String? = null // Phone number of the Field Officer who created this task
 ) {
     val statusEnum: TaskStatus
         get() = TaskStatus.valueOf(status)

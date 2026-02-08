@@ -120,6 +120,27 @@ class AuthDataStore(private val context: Context) {
         }
         return Result.success(Unit)
     }
+    
+    /**
+     * Register or update user with role. If user exists, updates their role.
+     */
+    suspend fun registerOrUpdateUser(phoneNumber: String, password: String, centerName: String?, role: UserRole) {
+        val users = getRegisteredUsers().toMutableList()
+        val existingIndex = users.indexOfFirst { it.phoneNumber == phoneNumber }
+        
+        if (existingIndex >= 0) {
+            // Update existing user's role
+            val existing = users[existingIndex]
+            users[existingIndex] = existing.copy(role = role.name)
+        } else {
+            // Add new user
+            users.add(RegisteredUser(phoneNumber = phoneNumber, password = password, centerName = centerName, role = role.name))
+        }
+        
+        context.authDataStore.edit { prefs ->
+            prefs[registeredUsersKey] = gson.toJson(users)
+        }
+    }
 
     suspend fun verifyLogin(phoneNumber: String, password: String): Boolean {
         val users = getRegisteredUsers()
@@ -137,4 +158,26 @@ class AuthDataStore(private val context: Context) {
         @Suppress("UNCHECKED_CAST")
         return (gson.fromJson(json, userListType) as? List<RegisteredUser>) ?: emptyList()
     }
+    
+    /**
+     * Get all registered Field Officers
+     */
+    suspend fun getAllFieldOfficers(): List<FieldOfficerInfo> {
+        return getRegisteredUsers()
+            .filter { it.role == UserRole.FIELD_OFFICER.name }
+            .map { FieldOfficerInfo(
+                phoneNumber = it.phoneNumber,
+                name = it.centerName ?: it.phoneNumber,
+                profileImageUri = it.profileImageUri
+            )}
+    }
 }
+
+/**
+ * Data class representing Field Officer information
+ */
+data class FieldOfficerInfo(
+    val phoneNumber: String,
+    val name: String,
+    val profileImageUri: String? = null
+)
