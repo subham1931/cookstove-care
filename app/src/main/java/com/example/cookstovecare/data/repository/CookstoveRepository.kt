@@ -86,6 +86,9 @@ class CookstoveRepository(
     suspend fun getReplacementDataByTaskId(taskId: Long) =
         dataStore.getReplacementDataByTaskId(taskId)
 
+    suspend fun resetWrongBackfillOnce() =
+        dataStore.resetWrongBackfillOnce()
+
     suspend fun createTask(
         cookstoveNumber: String,
         customerName: String?,
@@ -176,6 +179,38 @@ class CookstoveRepository(
             replacementDate = replacementDate,
             oldCookstoveImageUri = oldCookstoveImageUri,
             newCookstoveImageUri = newCookstoveImageUri
+        )
+        dataStore.insertReplacement(replacementData)
+        dataStore.updateTaskStatus(taskId, TaskStatus.REPLACEMENT_COMPLETED.name, completedAt = System.currentTimeMillis())
+        return Result.success(Unit)
+    }
+
+    /**
+     * Supervisor-only: complete replacement with just the new cookstove number (no images required).
+     */
+    suspend fun supervisorCompleteReplacement(
+        taskId: Long,
+        newCookstoveNumber: String
+    ): Result<Unit> {
+        val trimmedNew = newCookstoveNumber.trim()
+        if (trimmedNew.isEmpty()) {
+            return Result.failure(IllegalArgumentException("empty_new_cookstove_number"))
+        }
+        val task = dataStore.getTaskById(taskId) ?: return Result.failure(IllegalArgumentException("task_not_found"))
+        if (trimmedNew == task.cookstoveNumber) {
+            return Result.failure(IllegalArgumentException("old_new_numbers_same"))
+        }
+        if (dataStore.hasTaskWithNumber(trimmedNew)) {
+            return Result.failure(IllegalArgumentException("duplicate_new_cookstove_number"))
+        }
+        val replacementData = ReplacementData(
+            taskId = taskId,
+            oldCookstoveNumber = task.cookstoveNumber,
+            newCookstoveNumber = trimmedNew,
+            collectedDate = task.collectionDate,
+            replacementDate = System.currentTimeMillis(),
+            oldCookstoveImageUri = task.receivedProductImageUri ?: "",
+            newCookstoveImageUri = ""
         )
         dataStore.insertReplacement(replacementData)
         dataStore.updateTaskStatus(taskId, TaskStatus.REPLACEMENT_COMPLETED.name, completedAt = System.currentTimeMillis())

@@ -3,16 +3,19 @@ package com.example.cookstovecare.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.cookstovecare.data.entity.CookstoveTask
 import com.example.cookstovecare.data.entity.Technician
 import com.example.cookstovecare.data.repository.CookstoveRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 data class TechnicianDetailUiState(
     val technician: Technician? = null,
-    val assignedTaskCount: Int = 0,
+    val tasks: List<CookstoveTask> = emptyList(),
     val snackbarMessage: String? = null,
     val isLoading: Boolean = true
 )
@@ -27,36 +30,26 @@ class TechnicianDetailViewModel(
 
     init {
         loadTechnician()
+        observeTasks()
     }
 
     private fun loadTechnician() {
         viewModelScope.launch {
             val tech = repository.getTechnicianById(technicianId)
-            val count = repository.getAssignedTaskCount(technicianId)
             _uiState.value = _uiState.value.copy(
                 technician = tech,
-                assignedTaskCount = count,
                 isLoading = false
             )
         }
     }
 
-    fun setTechnicianActive(isActive: Boolean) {
-        val tech = _uiState.value.technician ?: return
+    private fun observeTasks() {
         viewModelScope.launch {
-            repository.setTechnicianActive(technicianId, isActive)
-                .fold(
-                    onSuccess = {
-                        _uiState.value = _uiState.value.copy(
-                            technician = tech.copy(isActive = isActive)
-                        )
-                    },
-                    onFailure = { e ->
-                        _uiState.value = _uiState.value.copy(
-                            snackbarMessage = e.message ?: "Error"
-                        )
-                    }
-                )
+            repository.getAllTasks()
+                .map { tasks -> tasks.filter { it.assignedToTechnicianId == technicianId } }
+                .collectLatest { techTasks ->
+                    _uiState.value = _uiState.value.copy(tasks = techTasks)
+                }
         }
     }
 

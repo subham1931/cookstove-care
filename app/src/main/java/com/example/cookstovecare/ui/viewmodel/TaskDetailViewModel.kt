@@ -65,6 +65,28 @@ class TaskDetailViewModel(
     val canProceedToRepairOrReplacement: Boolean
         get() = _uiState.value.task?.statusEnum == TaskStatus.COLLECTED ||
                 _uiState.value.task?.statusEnum == TaskStatus.IN_PROGRESS
+
+    /**
+     * Supervisor completes a replacement by providing the new cookstove number.
+     */
+    fun supervisorCompleteReplacement(
+        newCookstoveNumber: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            repository.supervisorCompleteReplacement(_taskId, newCookstoveNumber)
+                .fold(
+                    onSuccess = {
+                        loadTaskDetail()
+                        onSuccess()
+                    },
+                    onFailure = { e ->
+                        onError(e.message ?: "Error completing replacement")
+                    }
+                )
+        }
+    }
 }
 
 class TaskDetailViewModelFactory(

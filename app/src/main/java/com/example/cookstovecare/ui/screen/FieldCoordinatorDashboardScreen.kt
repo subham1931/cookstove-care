@@ -120,6 +120,11 @@ fun FieldCoordinatorDashboardScreen(
     var selectedBottomTab by rememberSaveable { mutableStateOf(FieldCoordinatorTab.HOME) }
     var homeFilterIndex by rememberSaveable { mutableStateOf(0) }
     
+    // One-time cleanup: reset wrongly backfilled field officer assignments
+    LaunchedEffect(Unit) {
+        repository.resetWrongBackfillOnce()
+    }
+    
     androidx.compose.runtime.LaunchedEffect(Unit) {
         navController.getBackStackEntry(NavRoutes.FIELD_COORDINATOR_DASHBOARD)?.savedStateHandle?.get<Int>("returnTab")?.let { tabOrdinal ->
             if (tabOrdinal in FieldCoordinatorTab.entries.indices) {
@@ -419,7 +424,7 @@ private fun FieldCoordinatorHomeContent(
             }
         } else {
             items(tasks.take(10)) { task ->
-                val officerName = fieldOfficers.find { it.phoneNumber == task.createdByFieldOfficer }?.name
+                val officerName = fieldOfficers.find { it.phoneNumber == task.createdByFieldOfficer }?.displayName
                     ?: task.createdByFieldOfficer
                     ?: "Unknown"
                 FieldCoordinatorTaskCard(
@@ -477,7 +482,8 @@ private fun FieldCoordinatorTaskCard(
         TaskStatus.COLLECTED -> stringResource(R.string.status_new)
         TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
         TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
-        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_repaired)
+        TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repaired)
+        TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replaced)
         TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
     }
     
@@ -692,7 +698,7 @@ private fun FieldCoordinatorWorkSummaryContent(
         "July", "August", "September", "October", "November", "December")
     val years = (todayYear - 5..todayYear + 1).toList()
     
-    val selectedOfficerName = fieldOfficers.find { it.phoneNumber == selectedFieldOfficer }?.name
+    val selectedOfficerName = fieldOfficers.find { it.phoneNumber == selectedFieldOfficer }?.displayName
 
     Column(modifier = modifier) {
         // Orders Header
@@ -830,15 +836,17 @@ private fun FieldCoordinatorWorkSummaryContent(
                                 )
                                 Column {
                                     Text(
-                                        text = officer.name,
+                                        text = officer.displayName,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
                                     )
-                                    Text(
-                                        text = officer.phoneNumber,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    if (officer.name != null) {
+                                        Text(
+                                            text = officer.phoneNumber,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         },
@@ -978,12 +986,12 @@ private fun FieldCoordinatorWorkSummaryContent(
         // Date picker row
         val dateListState = rememberLazyListState()
         
-        // Scroll to selected day centered
+        // Scroll so selected day appears at the end (right side)
         LaunchedEffect(selectedDay, selectedMonth, selectedYear) {
             val targetIndex = (selectedDay - 1).coerceIn(0, daysInMonth - 1)
-            // Scroll so the selected day is roughly centered (offset by ~3 items)
-            val scrollIndex = (targetIndex - 3).coerceAtLeast(0)
-            dateListState.scrollToItem(scrollIndex)
+            // Show selected day at the right edge (~5 items visible, so offset back by 5)
+            val scrollIndex = (targetIndex - 5).coerceAtLeast(0)
+            dateListState.animateScrollToItem(scrollIndex)
         }
         
         LazyRow(
@@ -996,6 +1004,9 @@ private fun FieldCoordinatorWorkSummaryContent(
                 val day = index + 1
                 val isSelected = selectedDay == day
                 val isToday = todayDay == day && todayMonth == selectedMonth && todayYear == selectedYear
+                val isFuture = (selectedYear > todayYear) ||
+                    (selectedYear == todayYear && selectedMonth > todayMonth) ||
+                    (selectedYear == todayYear && selectedMonth == todayMonth && day > todayDay)
                 val dayOfWeek = java.util.Calendar.getInstance().apply {
                     set(java.util.Calendar.YEAR, selectedYear)
                     set(java.util.Calendar.MONTH, selectedMonth)
@@ -1003,9 +1014,10 @@ private fun FieldCoordinatorWorkSummaryContent(
                 }.getDisplayName(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.SHORT, java.util.Locale.getDefault())
                 
                 Surface(
-                    onClick = { selectedDay = day },
+                    onClick = { if (!isFuture) selectedDay = day },
                     shape = RoundedCornerShape(12.dp),
                     color = when {
+                        isFuture -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
                         isSelected -> headerColor
                         isToday -> headerColor.copy(alpha = 0.3f)
                         else -> MaterialTheme.colorScheme.surfaceContainerHigh
@@ -1018,13 +1030,21 @@ private fun FieldCoordinatorWorkSummaryContent(
                         Text(
                             text = dayOfWeek ?: "",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = when {
+                                isFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                isSelected -> Color.White
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                         Text(
                             text = "$day",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                            color = when {
+                                isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                isSelected -> Color.White
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
                         )
                     }
                 }
@@ -1105,6 +1125,7 @@ private fun FieldOfficersListContent(
             FieldOfficerDetailContent(
                 officer = selectedOfficer!!,
                 tasks = tasks,
+                allFieldOfficers = fieldOfficers,
                 onTaskClick = onTaskClick,
                 onClose = { selectedOfficer = null }
             )
@@ -1239,17 +1260,19 @@ private fun FieldOfficerCard(
             // Officer info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = officer.name,
+                    text = officer.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = officer.phoneNumber,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (officer.name != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = officer.phoneNumber,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             
             // Role badge
@@ -1381,19 +1404,23 @@ private fun FieldCoordinatorProgressCard(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Progress bar
-            FieldCoordinatorProgressBar(currentStep = currentStep)
+            FieldCoordinatorProgressBar(currentStep = currentStep, typeOfProcess = task.typeOfProcess)
         }
     }
 }
 
 /** Horizontal progress bar showing order status flow */
 @Composable
-private fun FieldCoordinatorProgressBar(currentStep: Int) {
+private fun FieldCoordinatorProgressBar(currentStep: Int, typeOfProcess: String? = null) {
+    val completionLabel = if (typeOfProcess == "REPLACEMENT")
+        stringResource(R.string.status_replaced)
+    else
+        stringResource(R.string.status_repaired)
     val steps = listOf(
         stringResource(R.string.status_new),
         stringResource(R.string.status_assigned),
         stringResource(R.string.status_processing),
-        stringResource(R.string.status_repaired),
+        completionLabel,
         stringResource(R.string.status_distributed)
     )
     
@@ -1488,6 +1515,7 @@ private fun FieldCoordinatorProgressBar(currentStep: Int) {
 private fun FieldOfficerDetailContent(
     officer: FieldOfficerInfo,
     tasks: List<CookstoveTask>,
+    allFieldOfficers: List<FieldOfficerInfo>,
     onTaskClick: (Long) -> Unit,
     onClose: () -> Unit
 ) {
@@ -1495,7 +1523,7 @@ private fun FieldOfficerDetailContent(
     val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
     val context = LocalContext.current
     
-    // Filter tasks created by this Field Officer
+    // Filter tasks created by this Field Officer only
     val officerTasks = tasks.filter { it.createdByFieldOfficer == officer.phoneNumber }
     
     // Categorize tasks
@@ -1561,17 +1589,19 @@ private fun FieldOfficerDetailContent(
                 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = officer.name,
+                        text = officer.displayName,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = officer.phoneNumber,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
+                    if (officer.name != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = officer.phoneNumber,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
                 }
             }
         }
@@ -1715,7 +1745,8 @@ private fun FieldOfficerOrderCard(
         TaskStatus.COLLECTED -> stringResource(R.string.status_new)
         TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
         TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
-        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_repaired)
+        TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repaired)
+        TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replaced)
         TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
     }
     

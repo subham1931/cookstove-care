@@ -122,7 +122,7 @@
     <string name="complete_order">Complete Order</string>
     <string name="complete_order_image">Distribution Image (Optional)</string>
     <string name="complete_order_title">Complete Order</string>
-    <string name="distribution_date">Distribution Date</string>
+    <string name="distribution_date">Delivered Date</string>
     <string name="distribution_image">Distribution Image</string>
     <string name="status_distributed">Delivered</string>
     
@@ -211,6 +211,7 @@
     <string name="status_processing">Processing</string>
     <string name="status_completed">Completed</string>
     <string name="status_repaired">Repaired</string>
+    <string name="status_replaced">Replaced</string>
 
     <!-- Create Task -->
     <string name="create_task_title">Create New Order</string>

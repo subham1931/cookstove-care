@@ -57,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -115,12 +116,21 @@ fun DashboardScreen(
     onLogout: () -> Unit = {},
     onClearAllData: (() -> Unit)? = null
 ) {
-    val tasks by viewModel.tasks.collectAsState()
+    val allTasks by viewModel.tasks.collectAsState()
     val phoneNumber by authDataStore.phoneNumber.collectAsState(initial = "")
     val centerName by authDataStore.centerName.collectAsState(initial = "")
     val profileImageUri by authDataStore.profileImageUri.collectAsState(initial = null)
     val userRole by authDataStore.userRole.collectAsState(initial = UserRole.FIELD_OFFICER)
     var selectedBottomTab by rememberSaveable { mutableStateOf(FieldOfficerTab.TASKS) }
+    
+    // One-time cleanup: reset wrongly backfilled field officer assignments
+    LaunchedEffect(Unit) {
+        repository.resetWrongBackfillOnce()
+    }
+    
+    // Filter tasks to only show those created by the current field officer
+    val tasks = allTasks.filter { it.createdByFieldOfficer == phoneNumber }
+    
     var showCreateTaskModal by remember { mutableStateOf(false) }
     var showTaskCreatedSuccess by remember { mutableStateOf(false) }
     var editTaskId by remember(initialEditTaskId) { mutableStateOf<Long?>(initialEditTaskId) }
@@ -320,9 +330,7 @@ fun DashboardScreen(
                                     Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                                         TaskListItem(
                                             task = task,
-                                            onClick = { onTaskClick(task.id) },
-                                            onUpdateClick = { editTaskId = task.id },
-                                            onDeleteClick = { viewModel.deleteTask(task.id) }
+                                            onClick = { onTaskClick(task.id) }
                                         )
                                     }
                                 }
@@ -346,9 +354,7 @@ fun DashboardScreen(
                                     Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                                         TaskListItem(
                                             task = task,
-                                            onClick = { onTaskClick(task.id) },
-                                            onUpdateClick = { editTaskId = task.id },
-                                            onDeleteClick = { viewModel.deleteTask(task.id) }
+                                            onClick = { onTaskClick(task.id) }
                                         )
                                     }
                                 }
@@ -552,11 +558,12 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     // Date picker row
-                    val isCurrentMonth = selectedMonth == todayMonth && selectedYear == todayYear
-                    val initialIndex = if (isCurrentMonth) maxOf(0, todayDay - 3) else 0
-                    val listState = rememberLazyListState(
-                        initialFirstVisibleItemIndex = initialIndex
-                    )
+                    val listState = rememberLazyListState()
+                    // Scroll so selected day appears at the right edge
+                    LaunchedEffect(selectedDay, selectedMonth, selectedYear) {
+                        val scrollIndex = (selectedDay - 1 - 5).coerceAtLeast(0)
+                        listState.animateScrollToItem(scrollIndex)
+                    }
                     LazyRow(
                         state = listState,
                         modifier = Modifier
@@ -572,6 +579,9 @@ fun DashboardScreen(
                                 set(java.util.Calendar.DAY_OF_MONTH, day)
                             }
                             val isToday = day == todayDay && selectedMonth == todayMonth && selectedYear == todayYear
+                            val isFuture = (selectedYear > todayYear) ||
+                                (selectedYear == todayYear && selectedMonth > todayMonth) ||
+                                (selectedYear == todayYear && selectedMonth == todayMonth && day > todayDay)
                             val dayOfWeek = java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault())
                                 .format(dayCalendar.time)
                             val isSelected = selectedDay == day
@@ -581,27 +591,36 @@ fun DashboardScreen(
                                     .width(56.dp)
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(
-                                        if (isSelected) headerColor
-                                        else if (isToday) headerColor.copy(alpha = 0.1f)
-                                        else Color.Transparent
+                                        when {
+                                            isFuture -> Color.Transparent
+                                            isSelected -> headerColor
+                                            isToday -> headerColor.copy(alpha = 0.1f)
+                                            else -> Color.Transparent
+                                        }
                                     )
-                                    .clickable { selectedDay = day }
+                                    .clickable(enabled = !isFuture) { selectedDay = day }
                                     .padding(vertical = 12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
                                     text = dayOfWeek,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (isSelected) Color.White 
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = when {
+                                        isFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                        isSelected -> Color.White
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "$day",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.White 
-                                        else MaterialTheme.colorScheme.onSurface
+                                    color = when {
+                                        isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                        isSelected -> Color.White
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    }
                                 )
                             }
                         }

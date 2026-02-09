@@ -97,6 +97,7 @@ class AuthDataStore(private val context: Context) {
 
     /**
      * Update the current user's profile information.
+     * Also syncs the name and image to the RegisteredUser list so other roles can see it.
      */
     suspend fun updateProfile(centerName: String, profileImageUri: String?) {
         context.authDataStore.edit { prefs ->
@@ -105,6 +106,17 @@ class AuthDataStore(private val context: Context) {
                 prefs[profileImageUriKey] = profileImageUri
             } else {
                 prefs.remove(profileImageUriKey)
+            }
+            
+            // Also update the registered users list so coordinator can see the updated name
+            val currentPhone = prefs[phoneNumberKey] ?: return@edit
+            val json = prefs[registeredUsersKey] ?: "[]"
+            @Suppress("UNCHECKED_CAST")
+            val users: MutableList<RegisteredUser> = ((gson.fromJson(json, userListType) as? List<RegisteredUser>) ?: emptyList()).toMutableList()
+            val idx = users.indexOfFirst { it.phoneNumber == currentPhone }
+            if (idx >= 0) {
+                users[idx] = users[idx].copy(centerName = centerName, profileImageUri = profileImageUri)
+                prefs[registeredUsersKey] = gson.toJson(users)
             }
         }
     }
@@ -160,24 +172,29 @@ class AuthDataStore(private val context: Context) {
     }
     
     /**
-     * Get all registered Field Officers
+     * Get all registered Field Officers.
+     * Name falls back to phone number if not set or blank.
      */
     suspend fun getAllFieldOfficers(): List<FieldOfficerInfo> {
         return getRegisteredUsers()
             .filter { it.role == UserRole.FIELD_OFFICER.name }
             .map { FieldOfficerInfo(
                 phoneNumber = it.phoneNumber,
-                name = it.centerName ?: it.phoneNumber,
+                name = it.centerName?.takeIf { name -> name.isNotBlank() },
                 profileImageUri = it.profileImageUri
             )}
     }
 }
 
 /**
- * Data class representing Field Officer information
+ * Data class representing Field Officer information.
+ * [name] is null if the field officer hasn't set a display name yet.
+ * Use [displayName] for UI: shows name if available, otherwise phone number.
  */
 data class FieldOfficerInfo(
     val phoneNumber: String,
-    val name: String,
+    val name: String? = null,
     val profileImageUri: String? = null
-)
+) {
+    val displayName: String get() = name ?: phoneNumber
+}

@@ -8,7 +8,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -132,7 +135,6 @@ fun CookstoveCareNavGraph(
                             authDataStore = app.authDataStore,
                             navController = navController,
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
-                            onCreateTechnician = { navController.navigate(NavRoutes.CREATE_TECHNICIAN) },
                             onEditProfile = { navController.navigate(NavRoutes.EDIT_PROFILE) },
                             onLogout = { scope.launch { app.authDataStore.logout() } },
                             onClearAllData = { scope.launch { repository.clearAllData() } }
@@ -223,9 +225,24 @@ fun CookstoveCareNavGraph(
                             UserRole.FIELD_COORDINATOR -> NavRoutes.FIELD_COORDINATOR_DASHBOARD
                             else -> NavRoutes.FIELD_OFFICER_DASHBOARD
                         }
+                        // Resolve field officer name for coordinator view
+                        val fieldOfficerName = if (userRole == UserRole.FIELD_COORDINATOR) {
+                            var name by remember { mutableStateOf<String?>(null) }
+                            LaunchedEffect(taskId) {
+                                val task = repository.getTaskById(taskId)
+                                val phone = task?.createdByFieldOfficer
+                                if (phone != null) {
+                                    val officers = app.authDataStore.getAllFieldOfficers()
+                                    name = officers.find { it.phoneNumber == phone }?.displayName ?: phone
+                                }
+                            }
+                            name
+                        } else null
+
                         TaskDetailScreen(
                             viewModel = viewModel,
                             userRole = userRole,
+                            fieldOfficerName = fieldOfficerName,
                             onRepairClick = { navController.navigate(NavRoutes.repairForm(taskId)) },
                             onReplacementClick = { navController.navigate(NavRoutes.replacementForm(taskId)) },
                             onAddReturnClick = null,
@@ -348,7 +365,6 @@ fun CookstoveCareNavGraph(
                         TechniciansListScreen(
                             viewModel = viewModel,
                             onBack = { navController.popBackStack() },
-                            onCreateTechnician = { navController.navigate(NavRoutes.CREATE_TECHNICIAN) },
                             onTechnicianClick = { id -> navController.navigate(NavRoutes.technicianDetail(id)) }
                         )
                     }
@@ -364,7 +380,7 @@ fun CookstoveCareNavGraph(
                         TechnicianDetailScreen(
                             technicianId = technicianId,
                             viewModel = viewModel,
-                            onEdit = { navController.navigate(NavRoutes.editTechnician(technicianId)) },
+                            onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
                             onBack = { navController.popBackStack() }
                         )
                     }

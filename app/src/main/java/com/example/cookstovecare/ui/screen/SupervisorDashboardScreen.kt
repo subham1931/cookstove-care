@@ -57,6 +57,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -99,7 +100,6 @@ fun SupervisorDashboardScreen(
     authDataStore: AuthDataStore,
     navController: NavController,
     onTaskClick: (Long) -> Unit,
-    onCreateTechnician: () -> Unit,
     onEditProfile: () -> Unit = {},
     onLogout: () -> Unit,
     onClearAllData: (() -> Unit)? = null
@@ -192,7 +192,6 @@ fun SupervisorDashboardScreen(
                 TechniciansListScreen(
                     viewModel = techniciansViewModel,
                     onBack = null,
-                    onCreateTechnician = onCreateTechnician,
                     onTechnicianClick = { id ->
                         navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", SupervisorTab.TECHNICIANS.ordinal)
                         navController.navigate(NavRoutes.technicianDetail(id))
@@ -411,9 +410,12 @@ private fun SupervisorWorkSummaryContent(
         Spacer(modifier = Modifier.height(16.dp))
         
         // Date picker row
-        val isCurrentMonth = selectedMonth == todayMonth && selectedYear == todayYear
-        val initialIndex = if (isCurrentMonth) maxOf(0, todayDay - 3) else 0
-        val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+        val listState = rememberLazyListState()
+        // Scroll so selected day appears at the right edge
+        LaunchedEffect(selectedDay, selectedMonth, selectedYear) {
+            val scrollIndex = (selectedDay - 1 - 5).coerceAtLeast(0)
+            listState.animateScrollToItem(scrollIndex)
+        }
         
         LazyRow(
             state = listState,
@@ -430,6 +432,9 @@ private fun SupervisorWorkSummaryContent(
                     set(java.util.Calendar.DAY_OF_MONTH, day)
                 }
                 val isToday = day == todayDay && selectedMonth == todayMonth && selectedYear == todayYear
+                val isFuture = (selectedYear > todayYear) ||
+                    (selectedYear == todayYear && selectedMonth > todayMonth) ||
+                    (selectedYear == todayYear && selectedMonth == todayMonth && day > todayDay)
                 val dayOfWeek = java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault())
                     .format(dayCalendar.time)
                 val isSelected = selectedDay == day
@@ -439,27 +444,36 @@ private fun SupervisorWorkSummaryContent(
                         .width(56.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(
-                            if (isSelected) headerColor
-                            else if (isToday) headerColor.copy(alpha = 0.1f)
-                            else Color.Transparent
+                            when {
+                                isFuture -> Color.Transparent
+                                isSelected -> headerColor
+                                isToday -> headerColor.copy(alpha = 0.1f)
+                                else -> Color.Transparent
+                            }
                         )
-                        .clickable { selectedDay = day }
+                        .clickable(enabled = !isFuture) { selectedDay = day }
                         .padding(vertical = 12.dp),
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = dayOfWeek,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) Color.White 
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = when {
+                            isFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            isSelected -> Color.White
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "$day",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSelected) Color.White 
-                            else MaterialTheme.colorScheme.onSurface
+                        color = when {
+                            isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                            isSelected -> Color.White
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
                     )
                 }
             }
@@ -610,19 +624,23 @@ private fun SupervisorWorkSummaryCard(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Progress bar
-            OrderProgressBar(currentStep = currentStep)
+            OrderProgressBar(currentStep = currentStep, typeOfProcess = task.typeOfProcess)
         }
     }
 }
 
 /** Horizontal progress bar showing order status flow */
 @Composable
-private fun OrderProgressBar(currentStep: Int) {
+private fun OrderProgressBar(currentStep: Int, typeOfProcess: String? = null) {
+    val completionLabel = if (typeOfProcess == "REPLACEMENT") 
+        stringResource(R.string.status_replaced) 
+    else 
+        stringResource(R.string.status_repaired)
     val steps = listOf(
         stringResource(R.string.status_new),
         stringResource(R.string.status_assigned),
         stringResource(R.string.status_processing),
-        stringResource(R.string.status_repaired),
+        completionLabel,
         stringResource(R.string.status_distributed)
     )
     

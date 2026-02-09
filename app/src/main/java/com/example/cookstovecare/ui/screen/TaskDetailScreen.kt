@@ -39,6 +39,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -91,6 +92,7 @@ import java.util.Locale
 fun TaskDetailScreen(
     viewModel: TaskDetailViewModel,
     userRole: UserRole = UserRole.FIELD_OFFICER,
+    fieldOfficerName: String? = null,
     onRepairClick: () -> Unit,
     onReplacementClick: () -> Unit,
     onAddReturnClick: (() -> Unit)? = null,
@@ -113,6 +115,12 @@ fun TaskDetailScreen(
     // Status timeline bottom sheet state
     var showStatusTimeline by remember { mutableStateOf(false) }
     val statusTimelineSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+    // Supervisor replacement modal state
+    var showReplacementModal by remember { mutableStateOf(false) }
+    var newCookstoveNumber by remember { mutableStateOf("") }
+    var replacementError by remember { mutableStateOf<String?>(null) }
+    val replacementSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(Unit) {
         viewModel.refresh()
@@ -181,6 +189,199 @@ fun TaskDetailScreen(
                         repairData != null -> repairData.repairCompletionDate
                         replacementData != null -> replacementData.replacementDate
                         else -> null
+                    }
+
+                    // Task Status row at the top
+                    if (userRole != UserRole.TECHNICIAN) {
+                        val statusColor = when (task.statusEnum) {
+                            TaskStatus.COLLECTED -> MaterialTheme.colorScheme.primary
+                            TaskStatus.ASSIGNED -> Color(0xFF9C27B0)
+                            TaskStatus.IN_PROGRESS -> Color(0xFFFF9800)
+                            TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> SuccessGreen
+                            TaskStatus.DISTRIBUTED -> SuccessGreen
+                        }
+                        val statusText = when (task.statusEnum) {
+                            TaskStatus.COLLECTED -> stringResource(R.string.status_collected)
+                            TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
+                            TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
+                            TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repair_completed)
+                            TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replacement_completed)
+                            TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
+                        }
+
+                        // Status chip - full width, clickable
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.12f)),
+                            onClick = { showStatusTimeline = true }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = statusColor,
+                                        modifier = Modifier.size(10.dp)
+                                    ) {}
+                                    Column {
+                                        Text(
+                                            text = stringResource(R.string.task_status),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = statusText,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = statusColor
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = statusColor
+                                )
+                            }
+                        }
+
+                        // Info row: Field Officer / Technician
+                        val hasSecondCard = fieldOfficerName != null ||
+                            (userRole == UserRole.SUPERVISOR && (uiState.assignedTechnicianName != null || task.typeOfProcess != "REPLACEMENT"))
+
+                        if (hasSecondCard) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Field Officer card (coordinator only)
+                                if (fieldOfficerName != null) {
+                                    Card(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Field Officer",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    text = fieldOfficerName,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Technician card (supervisor only)
+                                if (userRole == UserRole.SUPERVISOR) {
+                                    val canChange = task.statusEnum == TaskStatus.ASSIGNED || task.statusEnum == TaskStatus.COLLECTED
+                                    if (uiState.assignedTechnicianName != null) {
+                                        Card(
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                            onClick = { if (canChange && onAssignTaskClick != null) onAssignTaskClick() }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Person,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = stringResource(R.string.technician_name),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = uiState.assignedTechnicianName!!,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                                if (canChange) {
+                                                    Icon(
+                                                        Icons.Default.Edit,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    } else if (task.typeOfProcess != "REPLACEMENT") {
+                                        Card(
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                            onClick = { onAssignTaskClick?.invoke() }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.AutoMirrored.Filled.Assignment,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = stringResource(R.string.assign_to_technician),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Card(
@@ -328,21 +529,6 @@ fun TaskDetailScreen(
                                         label = stringResource(R.string.collection_date),
                                         value = dateFormat.format(Date(task.collectionDate))
                                     )
-                                    OfficeDataItem(
-                                        icon = Icons.AutoMirrored.Filled.Assignment,
-                                        label = stringResource(R.string.task_status),
-                                        value = when (task.statusEnum) {
-                                            TaskStatus.COLLECTED -> stringResource(R.string.status_collected)
-                                            TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
-                                            TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
-                                            TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repair_completed)
-                                            TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replacement_completed)
-                                            TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
-                                        },
-                                        isStatus = true,
-                                        statusEnum = task.statusEnum,
-                                        onClick = { showStatusTimeline = true }
-                                    )
                                 }
                                 if (repairData != null) {
                                     HorizontalDivider(
@@ -354,19 +540,11 @@ fun TaskDetailScreen(
                                         selectedTypes = repairData.typesOfRepair.toSet()
                                     )
                                 }
-                                if (completionImageUri != null || completionDate != null || (replacementData?.collectedDate != null) || task.returnDate != null) {
+                                if (completionImageUri != null || completionDate != null || task.distributionDate != null || task.returnDate != null) {
                                     HorizontalDivider(
                                         modifier = Modifier.padding(vertical = 16.dp),
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                     )
-                                    replacementData?.collectedDate?.let { millis ->
-                                        OfficeDataItem(
-                                            icon = Icons.Default.CalendarToday,
-                                            label = stringResource(R.string.collection_date),
-                                            value = dateFormat.format(Date(millis))
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                    }
                                     // Distribution date and image (for Field Officer after completing order)
                                     task.distributionDate?.let { millis ->
                                         Spacer(modifier = Modifier.height(16.dp))
@@ -404,59 +582,23 @@ fun TaskDetailScreen(
                         }
                     }
 
-                    // Supervisor: Assign button when unassigned, or "Assigned to [name]" when assigned
-                    if (onAssignTaskClick != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (task.assignedToTechnicianId == null) {
+                    // Supervisor: Complete Replacement button (replacement tasks only)
+                    if (onAssignTaskClick != null && task.typeOfProcess == "REPLACEMENT") {
+                        val isNotCompleted = task.statusEnum != TaskStatus.REPLACEMENT_COMPLETED &&
+                            task.statusEnum != TaskStatus.REPAIR_COMPLETED &&
+                            task.statusEnum != TaskStatus.DISTRIBUTED
+                        if (isNotCompleted) {
+                            Spacer(modifier = Modifier.height(8.dp))
                             Button(
-                                onClick = onAssignTaskClick,
+                                onClick = { showReplacementModal = true },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 )
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                                Text(stringResource(R.string.assign_to_technician))
-                            }
-                        } else {
-                            val assignedName = uiState.assignedTechnicianName ?: stringResource(R.string.technician_name)
-                            val canChangeTechnician = task.statusEnum == TaskStatus.ASSIGNED
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = SuccessGreen.copy(alpha = 0.2f)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.Assignment,
-                                        contentDescription = null,
-                                        modifier = Modifier.padding(end = 8.dp),
-                                        tint = SuccessGreen
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.assigned_to_tech, assignedName),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    if (canChangeTechnician) {
-                                        TextButton(
-                                            onClick = onAssignTaskClick
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Edit,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(stringResource(R.string.change))
-                                        }
-                                    }
-                                }
+                                Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text(stringResource(R.string.complete_replacement))
                             }
                         }
                     }
@@ -622,8 +764,89 @@ fun TaskDetailScreen(
                     isAssigned = task.assignedToTechnicianId != null,
                     workStartedAt = task.workStartedAt,
                     completedAt = task.completedAt,
-                    distributionDate = task.distributionDate
+                    distributionDate = task.distributionDate,
+                    typeOfProcess = task.typeOfProcess
                 )
+            }
+        }
+    }
+    
+    // Supervisor Complete Replacement Modal
+    if (showReplacementModal) {
+        ModalBottomSheet(
+            onDismissRequest = { 
+                showReplacementModal = false
+                newCookstoveNumber = ""
+                replacementError = null
+            },
+            sheetState = replacementSheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.complete_replacement),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Text(
+                    text = "Old Cookstove: ${uiState.task?.cookstoveNumber ?: ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                OutlinedTextField(
+                    value = newCookstoveNumber,
+                    onValueChange = { 
+                        newCookstoveNumber = it
+                        replacementError = null
+                    },
+                    label = { Text("New Cookstove Number") },
+                    placeholder = { Text("Enter new cookstove number") },
+                    isError = replacementError != null,
+                    supportingText = replacementError?.let { error ->
+                        { Text(
+                            text = when (error) {
+                                "empty_new_cookstove_number" -> "Please enter a cookstove number"
+                                "old_new_numbers_same" -> "New number must be different from old number"
+                                "duplicate_new_cookstove_number" -> "This cookstove number already exists"
+                                else -> error
+                            },
+                            color = MaterialTheme.colorScheme.error
+                        ) }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Button(
+                    onClick = {
+                        viewModel.supervisorCompleteReplacement(
+                            newCookstoveNumber = newCookstoveNumber,
+                            onSuccess = {
+                                showReplacementModal = false
+                                newCookstoveNumber = ""
+                                replacementError = null
+                            },
+                            onError = { error ->
+                                replacementError = error
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = newCookstoveNumber.isNotBlank()
+                ) {
+                    Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text(stringResource(R.string.complete_replacement))
+                }
             }
         }
     }
@@ -865,45 +1088,70 @@ private fun StatusTimelineContent(
     isAssigned: Boolean,
     workStartedAt: Long?,
     completedAt: Long?,
-    distributionDate: Long?
+    distributionDate: Long?,
+    typeOfProcess: String? = null
 ) {
     val dateTimeFormat = SimpleDateFormat("EEE, d MMM ''yy - h:mma", Locale.getDefault())
     val dateFormat = SimpleDateFormat("EEE, d MMM ''yy", Locale.getDefault())
+    val isReplacement = typeOfProcess == "REPLACEMENT"
     
-    // Define status steps
-    val steps = listOf(
-        TimelineStep(
-            title = stringResource(R.string.timeline_order_created),
-            isCompleted = true, // Always completed if task exists
-            date = dateFormat.format(Date(collectionDate)),
-            description = stringResource(R.string.timeline_order_collected)
-        ),
-        TimelineStep(
-            title = stringResource(R.string.status_assigned),
-            isCompleted = currentStatus.ordinal >= TaskStatus.ASSIGNED.ordinal,
-            date = if (isAssigned) stringResource(R.string.timeline_technician_assigned) else null,
-            description = if (isAssigned) stringResource(R.string.timeline_assigned_desc) else null
-        ),
-        TimelineStep(
-            title = stringResource(R.string.status_processing),
-            isCompleted = currentStatus.ordinal >= TaskStatus.IN_PROGRESS.ordinal,
-            date = workStartedAt?.let { dateTimeFormat.format(Date(it)) },
-            description = if (workStartedAt != null) stringResource(R.string.timeline_processing_desc) else null
-        ),
-        TimelineStep(
-            title = stringResource(R.string.status_repaired),
-            isCompleted = currentStatus.ordinal >= TaskStatus.REPAIR_COMPLETED.ordinal || 
-                         currentStatus == TaskStatus.REPLACEMENT_COMPLETED,
-            date = completedAt?.let { dateTimeFormat.format(Date(it)) },
-            description = if (completedAt != null) stringResource(R.string.timeline_repaired_desc) else null
-        ),
-        TimelineStep(
-            title = stringResource(R.string.status_distributed),
-            isCompleted = currentStatus == TaskStatus.DISTRIBUTED,
-            date = distributionDate?.let { dateTimeFormat.format(Date(it)) },
-            description = if (distributionDate != null) stringResource(R.string.timeline_distributed_desc) else null
+    // Define status steps - replacement skips Assigned & Processing (done by supervisor directly)
+    val steps = if (isReplacement) {
+        listOf(
+            TimelineStep(
+                title = stringResource(R.string.timeline_order_created),
+                isCompleted = true,
+                date = dateFormat.format(Date(collectionDate)),
+                description = stringResource(R.string.timeline_order_collected)
+            ),
+            TimelineStep(
+                title = stringResource(R.string.status_replacement_completed),
+                isCompleted = currentStatus == TaskStatus.REPLACEMENT_COMPLETED || 
+                             currentStatus == TaskStatus.DISTRIBUTED,
+                date = completedAt?.let { dateTimeFormat.format(Date(it)) },
+                description = if (completedAt != null) "Replacement has been completed by supervisor" else null
+            ),
+            TimelineStep(
+                title = stringResource(R.string.status_distributed),
+                isCompleted = currentStatus == TaskStatus.DISTRIBUTED,
+                date = distributionDate?.let { dateTimeFormat.format(Date(it)) },
+                description = if (distributionDate != null) stringResource(R.string.timeline_distributed_desc) else null
+            )
         )
-    )
+    } else {
+        listOf(
+            TimelineStep(
+                title = stringResource(R.string.timeline_order_created),
+                isCompleted = true,
+                date = dateFormat.format(Date(collectionDate)),
+                description = stringResource(R.string.timeline_order_collected)
+            ),
+            TimelineStep(
+                title = stringResource(R.string.status_assigned),
+                isCompleted = currentStatus.ordinal >= TaskStatus.ASSIGNED.ordinal,
+                date = if (isAssigned) stringResource(R.string.timeline_technician_assigned) else null,
+                description = if (isAssigned) stringResource(R.string.timeline_assigned_desc) else null
+            ),
+            TimelineStep(
+                title = stringResource(R.string.status_processing),
+                isCompleted = currentStatus.ordinal >= TaskStatus.IN_PROGRESS.ordinal,
+                date = workStartedAt?.let { dateTimeFormat.format(Date(it)) },
+                description = if (workStartedAt != null) stringResource(R.string.timeline_processing_desc) else null
+            ),
+            TimelineStep(
+                title = stringResource(R.string.status_repaired),
+                isCompleted = currentStatus.ordinal >= TaskStatus.REPAIR_COMPLETED.ordinal,
+                date = completedAt?.let { dateTimeFormat.format(Date(it)) },
+                description = if (completedAt != null) stringResource(R.string.timeline_repaired_desc) else null
+            ),
+            TimelineStep(
+                title = stringResource(R.string.status_distributed),
+                isCompleted = currentStatus == TaskStatus.DISTRIBUTED,
+                date = distributionDate?.let { dateTimeFormat.format(Date(it)) },
+                description = if (distributionDate != null) stringResource(R.string.timeline_distributed_desc) else null
+            )
+        )
+    }
     
     Column(
         modifier = Modifier

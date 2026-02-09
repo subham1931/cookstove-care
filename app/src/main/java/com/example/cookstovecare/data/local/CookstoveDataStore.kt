@@ -31,6 +31,7 @@ class CookstoveDataStore(private val context: Context) {
     private val tasksKey = stringPreferencesKey("tasks")
     private val repairsKey = stringPreferencesKey("repairs")
     private val replacementsKey = stringPreferencesKey("replacements")
+    private val backfillResetDoneKey = stringPreferencesKey("backfill_reset_done_v1")
 
     val allTasks: Flow<List<CookstoveTask>> = context.dataStore.data.map { prefs ->
         val json = prefs[tasksKey] ?: "[]"
@@ -163,6 +164,33 @@ class CookstoveDataStore(private val context: Context) {
                 )
                 editPrefs[tasksKey] = gson.toJson(dtos)
             }
+        }
+    }
+
+    /**
+     * One-time reset of all createdByFieldOfficer fields to null (undo wrong backfill).
+     * Only runs once per app install, tracked by a preference flag.
+     */
+    suspend fun resetWrongBackfillOnce() {
+        context.dataStore.edit { editPrefs ->
+            // Check if already done
+            if (editPrefs[backfillResetDoneKey] == "true") return@edit
+            
+            val json = editPrefs[tasksKey] ?: "[]"
+            @Suppress("UNCHECKED_CAST")
+            val dtos: MutableList<CookstoveTaskDto> = ((gson.fromJson(json, taskListType) as? List<CookstoveTaskDto>) ?: emptyList()).toMutableList()
+            var changed = false
+            for (i in dtos.indices) {
+                if (dtos[i].createdByFieldOfficer != null) {
+                    dtos[i] = dtos[i].copy(createdByFieldOfficer = null)
+                    changed = true
+                }
+            }
+            if (changed) {
+                editPrefs[tasksKey] = gson.toJson(dtos)
+            }
+            // Mark as done so it never runs again
+            editPrefs[backfillResetDoneKey] = "true"
         }
     }
 

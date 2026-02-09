@@ -24,19 +24,16 @@ import com.example.cookstovecare.ui.theme.AuthGradientStartDark
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
@@ -60,7 +57,6 @@ import com.example.cookstovecare.ui.viewmodel.TechniciansListViewModel
 fun TechniciansListScreen(
     viewModel: TechniciansListViewModel,
     onBack: (() -> Unit)? = null,
-    onCreateTechnician: () -> Unit,
     onTechnicianClick: (Long) -> Unit = {}
 ) {
     val techniciansWithCounts by viewModel.techniciansWithCounts.collectAsState(initial = emptyList())
@@ -107,25 +103,12 @@ fun TechniciansListScreen(
                     .background(headerColor)
                     .padding(horizontal = 24.dp, vertical = 20.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.manage_technicians),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    IconButton(onClick = onCreateTechnician) {
-                        Icon(
-                            Icons.Default.PersonAdd,
-                            contentDescription = stringResource(R.string.create_technician),
-                            tint = Color.White
-                        )
-                    }
-                }
+                Text(
+                    text = stringResource(R.string.manage_technicians),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -152,9 +135,6 @@ fun TechniciansListScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            TextButton(onClick = onCreateTechnician) {
-                                Text(stringResource(R.string.create_technician), color = MaterialTheme.colorScheme.primary)
-                            }
                         }
                     }
                 }
