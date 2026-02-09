@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -108,6 +107,7 @@ fun FieldCoordinatorDashboardScreen(
     authDataStore: AuthDataStore,
     navController: NavController,
     onTaskClick: (Long) -> Unit,
+    onFieldOfficerClick: (String) -> Unit = {},
     onEditProfile: () -> Unit = {},
     onLogout: () -> Unit,
     onClearAllData: (() -> Unit)? = null
@@ -123,6 +123,8 @@ fun FieldCoordinatorDashboardScreen(
     // One-time cleanup: reset wrongly backfilled field officer assignments
     LaunchedEffect(Unit) {
         repository.resetWrongBackfillOnce()
+        // Remove stale/test field officers
+        authDataStore.removeRegisteredUsers(setOf("3577716831", "7735716733", "7357716831"))
     }
     
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -208,6 +210,7 @@ fun FieldCoordinatorDashboardScreen(
                 FieldCoordinatorWorkSummaryContent(
                     tasks = tasks,
                     displayName = displayName,
+                    coordinatorPhone = phoneNumber,
                     authDataStore = authDataStore,
                     onTaskClick = { taskId ->
                         navController.getBackStackEntry(NavRoutes.FIELD_COORDINATOR_DASHBOARD)?.savedStateHandle?.set("returnTab", FieldCoordinatorTab.ORDERS.ordinal)
@@ -221,11 +224,7 @@ fun FieldCoordinatorDashboardScreen(
             FieldCoordinatorTab.FIELD_OFFICERS -> {
                 FieldOfficersListContent(
                     authDataStore = authDataStore,
-                    tasks = tasks,
-                    onTaskClick = { taskId ->
-                        navController.currentBackStackEntry?.savedStateHandle?.set("from_tab", FieldCoordinatorTab.FIELD_OFFICERS.name)
-                        onTaskClick(taskId)
-                    },
+                    onFieldOfficerClick = onFieldOfficerClick,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
@@ -618,6 +617,7 @@ private fun FieldCoordinatorTaskCard(
 private fun FieldCoordinatorWorkSummaryContent(
     tasks: List<CookstoveTask>,
     displayName: String,
+    coordinatorPhone: String,
     authDataStore: AuthDataStore,
     onTaskClick: (Long) -> Unit,
     modifier: Modifier = Modifier
@@ -674,6 +674,16 @@ private fun FieldCoordinatorWorkSummaryContent(
         }
     }
     
+    // Coordinator filter sentinel
+    val coordinatorFilterValue = "__COORDINATOR__"
+    
+    // Officer matching helper
+    fun matchesOfficer(task: CookstoveTask): Boolean {
+        if (selectedFieldOfficer == null) return true
+        if (selectedFieldOfficer == coordinatorFilterValue) return task.createdByFieldOfficer == coordinatorPhone
+        return task.createdByFieldOfficer == selectedFieldOfficer
+    }
+    
     // Filter tasks by date AND field officer AND status
     val filteredTasks = tasks.filter { task ->
         val taskCalendar = java.util.Calendar.getInstance().apply {
@@ -682,23 +692,22 @@ private fun FieldCoordinatorWorkSummaryContent(
         val dateMatch = taskCalendar.get(java.util.Calendar.DAY_OF_MONTH) == selectedDay &&
             taskCalendar.get(java.util.Calendar.MONTH) == selectedMonth &&
             taskCalendar.get(java.util.Calendar.YEAR) == selectedYear
-        val officerMatch = selectedFieldOfficer == null || task.createdByFieldOfficer == selectedFieldOfficer
         val statusMatch = matchesStatus(task)
-        dateMatch && officerMatch && statusMatch
+        dateMatch && matchesOfficer(task) && statusMatch
     }
     
     // Count for header - filtered by officer and status only (not date)
     val officerFilteredTotal = tasks.count { task ->
-        val officerMatch = selectedFieldOfficer == null || task.createdByFieldOfficer == selectedFieldOfficer
         val statusMatch = matchesStatus(task)
-        officerMatch && statusMatch
+        matchesOfficer(task) && statusMatch
     }
     
     val monthNames = listOf("January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December")
     val years = (todayYear - 5..todayYear + 1).toList()
     
-    val selectedOfficerName = fieldOfficers.find { it.phoneNumber == selectedFieldOfficer }?.displayName
+    val selectedOfficerName = if (selectedFieldOfficer == coordinatorFilterValue) displayName
+        else fieldOfficers.find { it.phoneNumber == selectedFieldOfficer }?.displayName
 
     Column(modifier = modifier) {
         // Orders Header
@@ -782,8 +791,11 @@ private fun FieldCoordinatorWorkSummaryContent(
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = if (selectedFieldOfficer == null) "All Field Officers"
-                                else selectedOfficerName ?: selectedFieldOfficer!!,
+                            text = when {
+                                selectedFieldOfficer == null -> "All"
+                                selectedFieldOfficer == coordinatorFilterValue -> "By You"
+                                else -> selectedOfficerName ?: selectedFieldOfficer!!
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (selectedFieldOfficer != null) FontWeight.Medium else FontWeight.Normal,
                             color = if (selectedFieldOfficer != null) headerColor 
@@ -809,7 +821,7 @@ private fun FieldCoordinatorWorkSummaryContent(
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
-                            Text("All Field Officers")
+                            Text("All")
                         }
                     },
                     onClick = { 
@@ -817,6 +829,41 @@ private fun FieldCoordinatorWorkSummaryContent(
                         showFieldOfficerPicker = false 
                     },
                     leadingIcon = if (selectedFieldOfficer == null) {
+                        { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                    } else null
+                )
+                // "Coordinator" option
+                val isCoordinatorSelected = selectedFieldOfficer == coordinatorFilterValue
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "By You",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = coordinatorPhone,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    onClick = { 
+                        selectedFieldOfficer = coordinatorFilterValue
+                        showFieldOfficerPicker = false 
+                    },
+                    leadingIcon = if (isCoordinatorSelected) {
                         { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
                     } else null
                 )
@@ -1092,44 +1139,22 @@ private fun FieldCoordinatorWorkSummaryContent(
 }
 
 /** Field Officers List content */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FieldOfficersListContent(
     authDataStore: AuthDataStore,
-    tasks: List<CookstoveTask>,
-    onTaskClick: (Long) -> Unit,
+    onFieldOfficerClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
-    val scope = rememberCoroutineScope()
     var fieldOfficers by remember { mutableStateOf<List<FieldOfficerInfo>>(emptyList()) }
     var refreshKey by remember { mutableStateOf(0) }
-    var selectedOfficer by remember { mutableStateOf<FieldOfficerInfo?>(null) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val context = LocalContext.current
     
     // Fetch field officers on launch and on refresh
     LaunchedEffect(refreshKey) {
         val officers = authDataStore.getAllFieldOfficers()
         android.util.Log.d("FieldOfficers", "Fetched ${officers.size} field officers: ${officers.map { it.phoneNumber }}")
         fieldOfficers = officers
-    }
-    
-    // Field Officer Detail Bottom Sheet
-    if (selectedOfficer != null) {
-        ModalBottomSheet(
-            onDismissRequest = { selectedOfficer = null },
-            sheetState = sheetState
-        ) {
-            FieldOfficerDetailContent(
-                officer = selectedOfficer!!,
-                tasks = tasks,
-                allFieldOfficers = fieldOfficers,
-                onTaskClick = onTaskClick,
-                onClose = { selectedOfficer = null }
-            )
-        }
     }
 
     Column(modifier = modifier) {
@@ -1198,7 +1223,7 @@ private fun FieldOfficersListContent(
                 items(fieldOfficers) { officer ->
                     FieldOfficerCard(
                         officer = officer,
-                        onClick = { selectedOfficer = officer }
+                        onClick = { onFieldOfficerClick(officer.phoneNumber) }
                     )
                 }
             }
@@ -1510,319 +1535,3 @@ private fun FieldCoordinatorProgressBar(currentStep: Int, typeOfProcess: String?
     }
 }
 
-/** Field Officer Detail Content - shows overview of their orders */
-@Composable
-private fun FieldOfficerDetailContent(
-    officer: FieldOfficerInfo,
-    tasks: List<CookstoveTask>,
-    allFieldOfficers: List<FieldOfficerInfo>,
-    onTaskClick: (Long) -> Unit,
-    onClose: () -> Unit
-) {
-    val isDark = isSystemInDarkTheme()
-    val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
-    val context = LocalContext.current
-    
-    // Filter tasks created by this Field Officer only
-    val officerTasks = tasks.filter { it.createdByFieldOfficer == officer.phoneNumber }
-    
-    // Categorize tasks
-    val allOrders = officerTasks
-    val pendingOrders = officerTasks.filter { 
-        it.statusEnum == TaskStatus.COLLECTED || 
-        it.statusEnum == TaskStatus.ASSIGNED || 
-        it.statusEnum == TaskStatus.IN_PROGRESS ||
-        it.statusEnum == TaskStatus.REPAIR_COMPLETED ||
-        it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
-    }
-    val deliveredOrders = officerTasks.filter { 
-        it.statusEnum == TaskStatus.DISTRIBUTED 
-    }
-    
-    var selectedTab by remember { mutableStateOf(0) } // 0 = All, 1 = Pending, 2 = Delivered
-    
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 400.dp)
-    ) {
-        // Header with officer info
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(headerColor)
-                .padding(horizontal = 24.dp, vertical = 20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Profile image or placeholder
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (officer.profileImageUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(officer.profileImageUri)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(32.dp),
-                            tint = Color.White
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = officer.displayName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    if (officer.name != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = officer.phoneNumber,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-            }
-        }
-        
-        // Stats Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            StatCard(
-                title = stringResource(R.string.dashboard_all_orders),
-                count = allOrders.size,
-                color = MaterialTheme.colorScheme.primary
-            )
-            StatCard(
-                title = stringResource(R.string.dashboard_pending),
-                count = pendingOrders.size,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-            StatCard(
-                title = stringResource(R.string.status_distributed),
-                count = deliveredOrders.size,
-                color = SuccessGreen
-            )
-        }
-        
-        // Tab selector
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf(
-                stringResource(R.string.dashboard_all_orders) to 0,
-                stringResource(R.string.dashboard_pending) to 1,
-                stringResource(R.string.status_distributed) to 2
-            ).forEach { (label, index) ->
-                val isSelected = selectedTab == index
-                Surface(
-                    onClick = { selectedTab = index },
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 10.dp)
-                    )
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Orders list based on selected tab
-        val displayTasks = when (selectedTab) {
-            0 -> allOrders
-            1 -> pendingOrders
-            2 -> deliveredOrders
-            else -> allOrders
-        }
-        
-        if (displayTasks.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.no_orders_yet),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(displayTasks) { task ->
-                    FieldOfficerOrderCard(
-                        task = task,
-                        onClick = { onTaskClick(task.id) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Stat card for Field Officer overview */
-@Composable
-private fun StatCard(
-    title: String,
-    count: Int,
-    color: Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(8.dp)
-    ) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-/** Simple order card for Field Officer detail view */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FieldOfficerOrderCard(
-    task: CookstoveTask,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val statusColor = when (task.statusEnum) {
-        TaskStatus.DISTRIBUTED -> SuccessGreen
-        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> Color(0xFF2196F3)
-        TaskStatus.IN_PROGRESS -> Color(0xFFFF9800)
-        else -> MaterialTheme.colorScheme.tertiary
-    }
-    val statusText = when (task.statusEnum) {
-        TaskStatus.COLLECTED -> stringResource(R.string.status_new)
-        TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
-        TaskStatus.IN_PROGRESS -> stringResource(R.string.status_processing)
-        TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repaired)
-        TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replaced)
-        TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
-    }
-    
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Task image
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                if (task.receivedProductImageUri != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(task.receivedProductImageUri)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.AddPhotoAlternate,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            // Task info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = task.cookstoveNumber,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                task.typeOfProcess?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            // Status badge
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = statusColor.copy(alpha = 0.15f)
-            ) {
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = statusColor,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
-    }
-}

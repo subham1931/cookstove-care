@@ -13,6 +13,8 @@
     <string name="manage_field_officers">Manage Field Officers</string>
     <string name="no_field_officers">No field officers yet</string>
     <string name="nav_field_officers">Field Officers</string>
+    <string name="field_officer_details">Field Officer Details</string>
+    <string name="field_officer_phone">Phone / ID</string>
     <string name="technician_name">Technician Name</string>
     <string name="role_technician">Technician</string>
     <string name="tasks_to_assign">Tasks to Assign</string>

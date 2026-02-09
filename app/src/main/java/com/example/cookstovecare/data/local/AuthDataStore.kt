@@ -172,6 +172,22 @@ class AuthDataStore(private val context: Context) {
     }
     
     /**
+     * Remove registered users by phone numbers.
+     */
+    suspend fun removeRegisteredUsers(phoneNumbers: Set<String>) {
+        context.authDataStore.edit { prefs ->
+            val json = prefs[registeredUsersKey] ?: "[]"
+            @Suppress("UNCHECKED_CAST")
+            val users: MutableList<RegisteredUser> = ((gson.fromJson(json, userListType) as? List<RegisteredUser>) ?: emptyList()).toMutableList()
+            val before = users.size
+            users.removeAll { it.phoneNumber in phoneNumbers }
+            if (users.size != before) {
+                prefs[registeredUsersKey] = gson.toJson(users)
+            }
+        }
+    }
+
+    /**
      * Get all registered Field Officers.
      * Name falls back to phone number if not set or blank.
      */

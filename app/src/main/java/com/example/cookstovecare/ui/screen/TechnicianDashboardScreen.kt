@@ -1,6 +1,7 @@
 package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,15 +11,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.Home
@@ -35,6 +40,8 @@ import coil.request.ImageRequest
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,6 +59,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.cookstovecare.ui.viewmodel.RepairFormViewModelFactory
 import com.example.cookstovecare.ui.viewmodel.ReplacementFormViewModelFactory
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +103,7 @@ private enum class TechnicianFilter(val statuses: List<TaskStatus>) {
 /** Bottom navigation tabs */
 private enum class TechnicianBottomTab(val titleRes: Int) {
     TASKS(R.string.nav_tasks),
+    ORDERS(R.string.filter_orders),
     PROFILE(R.string.nav_profile)
 }
 
@@ -147,6 +156,7 @@ fun TechnicianDashboardScreen(
                             Icon(
                                 imageVector = when (tab) {
                                     TechnicianBottomTab.TASKS -> Icons.Default.Home
+                                    TechnicianBottomTab.ORDERS -> Icons.Default.Assignment
                                     TechnicianBottomTab.PROFILE -> Icons.Default.Person
                                 },
                                 contentDescription = stringResource(tab.titleRes)
@@ -188,6 +198,15 @@ fun TechnicianDashboardScreen(
                             else -> repairTaskId = task.id
                         }
                     }
+                )
+            }
+            TechnicianBottomTab.ORDERS -> {
+                TechnicianOrdersContent(
+                    tasks = assignedTasks,
+                    onTaskClick = onTaskClick,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
                 )
             }
             TechnicianBottomTab.PROFILE -> {
@@ -766,6 +785,385 @@ private fun EmptyTaskState() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
         )
+    }
+}
+
+/** Technician Orders Content - date-based view of completed orders */
+@Composable
+private fun TechnicianOrdersContent(
+    tasks: List<CookstoveTask>,
+    onTaskClick: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
+
+    val todayCalendar = Calendar.getInstance()
+    val todayDay = todayCalendar.get(Calendar.DAY_OF_MONTH)
+    val todayMonth = todayCalendar.get(Calendar.MONTH)
+    val todayYear = todayCalendar.get(Calendar.YEAR)
+
+    var selectedMonth by remember { mutableStateOf(todayMonth) }
+    var selectedYear by remember { mutableStateOf(todayYear) }
+    var selectedDay by remember { mutableStateOf(todayDay) }
+    var showMonthPicker by remember { mutableStateOf(false) }
+    var showYearPicker by remember { mutableStateOf(false) }
+
+    // Only show tasks the technician has completed (not delivered - that's done by others)
+    val completedTasks = tasks.filter {
+        it.statusEnum == TaskStatus.REPAIR_COMPLETED ||
+        it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+    }
+
+    val selectedCalendar = Calendar.getInstance().apply {
+        set(Calendar.MONTH, selectedMonth)
+        set(Calendar.YEAR, selectedYear)
+        set(Calendar.DAY_OF_MONTH, 1)
+    }
+    val daysInMonth = selectedCalendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+    if (selectedDay > daysInMonth) {
+        selectedDay = daysInMonth
+    }
+
+    // Filter by date
+    val filteredTasks = completedTasks.filter { task ->
+        val taskCalendar = Calendar.getInstance().apply {
+            timeInMillis = task.completedAt ?: task.createdAt
+        }
+        taskCalendar.get(Calendar.DAY_OF_MONTH) == selectedDay &&
+            taskCalendar.get(Calendar.MONTH) == selectedMonth &&
+            taskCalendar.get(Calendar.YEAR) == selectedYear
+    }
+
+    val monthNames = listOf(
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    )
+    val years = (todayYear - 5..todayYear + 1).toList()
+    val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+    Column(modifier = modifier) {
+        // Header
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                .background(headerColor)
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.filter_orders),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Month & Year pickers
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Month picker
+            Box(modifier = Modifier.weight(1f)) {
+                Surface(
+                    onClick = { showMonthPicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = monthNames[selectedMonth],
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                }
+                DropdownMenu(
+                    expanded = showMonthPicker,
+                    onDismissRequest = { showMonthPicker = false },
+                    modifier = Modifier.heightIn(max = 300.dp)
+                ) {
+                    monthNames.forEachIndexed { index, month ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    month,
+                                    fontWeight = if (index == selectedMonth) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            onClick = {
+                                selectedMonth = index
+                                showMonthPicker = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Year picker
+            Box {
+                Surface(
+                    onClick = { showYearPicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "$selectedYear",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                }
+                DropdownMenu(
+                    expanded = showYearPicker,
+                    onDismissRequest = { showYearPicker = false }
+                ) {
+                    years.forEach { year ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "$year",
+                                    fontWeight = if (year == selectedYear) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            onClick = {
+                                selectedYear = year
+                                showYearPicker = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Day selector (horizontal scroll)
+        val dateListState = rememberLazyListState()
+
+        LaunchedEffect(selectedDay, selectedMonth, selectedYear) {
+            val targetIndex = (selectedDay - 1).coerceIn(0, daysInMonth - 1)
+            val scrollIndex = (targetIndex - 5).coerceAtLeast(0)
+            dateListState.animateScrollToItem(scrollIndex)
+        }
+
+        LazyRow(
+            state = dateListState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(daysInMonth) { dayIndex ->
+                val day = dayIndex + 1
+                val cal = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, selectedYear)
+                    set(Calendar.MONTH, selectedMonth)
+                    set(Calendar.DAY_OF_MONTH, day)
+                }
+                val dayOfWeek = dayNames[cal.get(Calendar.DAY_OF_WEEK) - 1]
+                val isSelected = day == selectedDay
+                val isToday = day == todayDay && selectedMonth == todayMonth && selectedYear == todayYear
+
+                Surface(
+                    onClick = { selectedDay = day },
+                    shape = RoundedCornerShape(12.dp),
+                    color = when {
+                        isSelected -> headerColor
+                        else -> Color.Transparent
+                    },
+                    modifier = Modifier.width(52.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                    ) {
+                        Text(
+                            text = dayOfWeek,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isSelected) Color.White
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "$day",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) Color.White
+                                else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Orders count
+        Text(
+            text = "${filteredTasks.size} completed orders",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Orders list
+        if (filteredTasks.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No completed orders on this date",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredTasks, key = { it.id }) { task ->
+                    TechnicianOrderCard(
+                        task = task,
+                        onClick = { onTaskClick(task.id) },
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Order card for technician orders view */
+@Composable
+private fun TechnicianOrderCard(
+    task: CookstoveTask,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val processText = task.typeOfProcess?.let { type ->
+        when (type) {
+            "REPAIRING" -> stringResource(R.string.type_repairing)
+            "REPLACEMENT" -> stringResource(R.string.type_replacement)
+            else -> type
+        }
+    }
+    val statusText = when (task.statusEnum) {
+        TaskStatus.REPAIR_COMPLETED -> "Repaired"
+        TaskStatus.REPLACEMENT_COMPLETED -> "Replaced"
+        else -> ""
+    }
+    val statusColor = SuccessGreen
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Product image
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (task.receivedProductImageUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(task.receivedProductImageUri)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.AddPhotoAlternate,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Task info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.cookstoveNumber,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (processText != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = processText,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+
+            // Status badge
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = statusColor.copy(alpha = 0.15f)
+            ) {
+                Text(
+                    text = statusText,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = statusColor
+                )
+            }
+        }
     }
 }
 

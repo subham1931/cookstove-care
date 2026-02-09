@@ -649,15 +649,7 @@ fun DashboardScreen(
                                 Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                                     TaskListItem(
                                         task = task,
-                                        onClick = { onTaskClick(task.id) },
-                                        onUpdateClick = if (task.statusEnum != TaskStatus.DISTRIBUTED && 
-                                            task.statusEnum != TaskStatus.REPAIR_COMPLETED && 
-                                            task.statusEnum != TaskStatus.REPLACEMENT_COMPLETED) {
-                                            { editTaskId = task.id }
-                                        } else null,
-                                        onDeleteClick = if (task.statusEnum != TaskStatus.DISTRIBUTED) {
-                                            { viewModel.deleteTask(task.id) }
-                                        } else null
+                                        onClick = { onTaskClick(task.id) }
                                     )
                                 }
                             }

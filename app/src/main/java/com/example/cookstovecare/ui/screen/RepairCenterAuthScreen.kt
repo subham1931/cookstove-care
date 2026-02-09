@@ -106,21 +106,6 @@ fun RepairCenterAuthScreen(
                 )
         )
 
-        // Back button
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(top = 8.dp, start = 8.dp)
-                .align(Alignment.TopStart)
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.back),
-                tint = Color.White
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -388,6 +373,21 @@ fun RepairCenterAuthScreen(
             }
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        // Back button - placed after Column so it renders on top and receives touch events
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(top = 8.dp, start = 8.dp)
+                .align(Alignment.TopStart)
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.back),
+                tint = Color.White
+            )
         }
     }
 }

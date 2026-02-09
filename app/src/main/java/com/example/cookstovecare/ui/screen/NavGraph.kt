@@ -105,7 +105,11 @@ fun CookstoveCareNavGraph(
                                 }
                                 navController.navigate(dest) { popUpTo(NavRoutes.WELCOME) { inclusive = true } }
                             },
-                            onBack = { navController.popBackStack() }
+                            onBack = { 
+                                navController.navigate(NavRoutes.WELCOME) {
+                                    popUpTo(NavRoutes.WELCOME) { inclusive = true }
+                                }
+                            }
                         )
                     }
 
@@ -184,9 +188,24 @@ fun CookstoveCareNavGraph(
                             authDataStore = app.authDataStore,
                             navController = navController,
                             onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
+                            onFieldOfficerClick = { phone -> navController.navigate(NavRoutes.fieldOfficerDetail(phone)) },
                             onEditProfile = { navController.navigate(NavRoutes.EDIT_PROFILE) },
                             onLogout = { scope.launch { app.authDataStore.logout() } },
                             onClearAllData = { scope.launch { repository.clearAllData() } }
+                        )
+                    }
+
+                    composable(
+                        route = NavRoutes.FIELD_OFFICER_DETAIL,
+                        arguments = listOf(navArgument("officerPhone") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val officerPhone = backStackEntry.arguments?.getString("officerPhone") ?: ""
+                        FieldOfficerDetailScreen(
+                            officerPhone = officerPhone,
+                            authDataStore = app.authDataStore,
+                            repository = repository,
+                            onTaskClick = { taskId -> navController.navigate(NavRoutes.taskDetail(taskId)) },
+                            onBack = { navController.popBackStack() }
                         )
                     }
 
