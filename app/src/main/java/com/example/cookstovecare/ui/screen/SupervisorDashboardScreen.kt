@@ -2,7 +2,6 @@ package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,10 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -27,11 +26,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -178,6 +182,7 @@ fun SupervisorDashboardScreen(
             SupervisorTab.WORK_SUMMARY -> {
                 SupervisorWorkSummaryContent(
                     tasks = tasks,
+                    repository = repository,
                     onTaskClick = { taskId ->
                         navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.set("returnTab", SupervisorTab.WORK_SUMMARY.ordinal)
                         onTaskClick(taskId)
@@ -230,16 +235,20 @@ fun SupervisorDashboardScreen(
     }
 }
 
-/** Supervisor Work Summary with date picker UI */
+/** Supervisor Work Summary with date picker UI and filter bottom sheet */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SupervisorWorkSummaryContent(
     tasks: List<CookstoveTask>,
+    repository: CookstoveRepository,
     onTaskClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
-    val context = LocalContext.current
+    
+    // Load technicians
+    val technicians by repository.getAllTechnicians().collectAsState(initial = emptyList())
     
     // Get current date info
     val todayCalendar = java.util.Calendar.getInstance()
@@ -251,8 +260,25 @@ private fun SupervisorWorkSummaryContent(
     var selectedMonth by remember { mutableStateOf(todayMonth) }
     var selectedYear by remember { mutableStateOf(todayYear) }
     var selectedDay by remember { mutableStateOf(todayDay) }
-    var showMonthPicker by remember { mutableStateOf(false) }
-    var showYearPicker by remember { mutableStateOf(false) }
+    var showMonthYearPicker by remember { mutableStateOf(false) }
+    var showFilterSheet by remember { mutableStateOf(false) }
+    
+    // Filter state
+    var selectedStatusFilter by remember { mutableStateOf<Int?>(null) }
+    var selectedTechnicianId by remember { mutableStateOf<Long?>(null) }
+    
+    val statusFilters = listOf(
+        null to "All",
+        0 to "New",
+        1 to "Assigned",
+        2 to "Processing",
+        3 to "Repaired",
+        4 to "Delivered"
+    )
+    val activeFilterCount = listOfNotNull(
+        selectedStatusFilter,
+        selectedTechnicianId
+    ).size
     
     // Calculate days in selected month
     val selectedCalendar = java.util.Calendar.getInstance().apply {
@@ -268,7 +294,7 @@ private fun SupervisorWorkSummaryContent(
     }
     
     // Filter tasks by selected date
-    val filteredTasks = tasks.filter { task ->
+    val dateFilteredTasks = tasks.filter { task ->
         val taskCalendar = java.util.Calendar.getInstance().apply {
             timeInMillis = task.createdAt
         }
@@ -277,9 +303,27 @@ private fun SupervisorWorkSummaryContent(
         taskCalendar.get(java.util.Calendar.YEAR) == selectedYear
     }
     
+    // Apply status filter
+    val statusFilteredTasks = if (selectedStatusFilter != null) {
+        dateFilteredTasks.filter { task ->
+            val step = when (task.statusEnum) {
+                TaskStatus.COLLECTED -> 0
+                TaskStatus.ASSIGNED -> 1
+                TaskStatus.IN_PROGRESS -> 2
+                TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> 3
+                TaskStatus.DISTRIBUTED -> 4
+            }
+            step == selectedStatusFilter
+        }
+    } else dateFilteredTasks
+    
+    // Apply technician filter
+    val filteredTasks = if (selectedTechnicianId != null) {
+        statusFilteredTasks.filter { it.assignedToTechnicianId == selectedTechnicianId }
+    } else statusFilteredTasks
+    
     val monthNames = listOf("January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December")
-    val years = (todayYear - 5..todayYear + 1).toList()
     
     Column(modifier = modifier) {
         // Header
@@ -303,190 +347,273 @@ private fun SupervisorWorkSummaryContent(
             )
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        // Month and Year selector
+        // Month nav row: [<] February 2026 [>] ... [filter icon]
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Month dropdown
-            Box(modifier = Modifier.weight(1f)) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showMonthPicker = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+            // Month navigation
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = {
+                        if (selectedMonth == 0) {
+                            selectedMonth = 11
+                            selectedYear -= 1
+                        } else {
+                            selectedMonth -= 1
+                        }
+                        selectedDay = 1
+                    },
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    Icon(
+                        Icons.Default.KeyboardArrowLeft,
+                        contentDescription = "Previous month",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                // Tappable month-year text with year grid picker
+                Box {
+                    Surface(
+                        onClick = { showMonthYearPicker = !showMonthYearPicker },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Transparent
                     ) {
-                        Text(
-                            text = monthNames[selectedMonth],
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "${monthNames[selectedMonth]} $selectedYear",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    // Year grid picker dropdown
+                    DropdownMenu(
+                        expanded = showMonthYearPicker,
+                        onDismissRequest = { showMonthYearPicker = false }
+                    ) {
+                        val startYear = 1990
+                        val allYears = (startYear..todayYear).toList().reversed()
+                        val columns = 4
+                        val rowCount = (allYears.size + columns - 1) / columns
+                        val selectedIndex = allYears.indexOf(selectedYear)
+                        val selectedRowIndex = if (selectedIndex >= 0) selectedIndex / columns else 0
+                        val yearListState = rememberLazyListState()
+                        
+                        LaunchedEffect(showMonthYearPicker) {
+                            if (showMonthYearPicker) {
+                                yearListState.scrollToItem((selectedRowIndex - 1).coerceAtLeast(0))
+                            }
+                        }
+                        
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .width(260.dp)
+                        ) {
+                            Text(
+                                text = "Select Year",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            
+                            LazyColumn(
+                                state = yearListState,
+                                modifier = Modifier.height(240.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                items(rowCount) { row ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        for (col in 0 until columns) {
+                                            val index = row * columns + col
+                                            if (index < allYears.size) {
+                                                val year = allYears[index]
+                                                val isSelected = selectedYear == year
+                                                Surface(
+                                                    onClick = {
+                                                        selectedYear = year
+                                                        if (year == todayYear && selectedMonth > todayMonth) {
+                                                            selectedMonth = todayMonth
+                                                        }
+                                                        selectedDay = 1
+                                                        showMonthYearPicker = false
+                                                    },
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = if (isSelected) headerColor
+                                                        else Color.Transparent,
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Text(
+                                                        text = "$year",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (isSelected) Color.White
+                                                            else MaterialTheme.colorScheme.onSurface,
+                                                        textAlign = TextAlign.Center,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(vertical = 10.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                DropdownMenu(
-                    expanded = showMonthPicker,
-                    onDismissRequest = { showMonthPicker = false },
-                    modifier = Modifier.heightIn(max = 300.dp)
-                ) {
-                    monthNames.forEachIndexed { index, month ->
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    month,
-                                    fontWeight = if (index == selectedMonth) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            onClick = {
-                                selectedMonth = index
-                                showMonthPicker = false
+                IconButton(
+                    onClick = {
+                        val isCurrentMonth = selectedMonth == todayMonth && selectedYear == todayYear
+                        if (!isCurrentMonth) {
+                            if (selectedMonth == 11) {
+                                selectedMonth = 0
+                                selectedYear += 1
+                            } else {
+                                selectedMonth += 1
                             }
-                        )
-                    }
+                            selectedDay = 1
+                        }
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    val canGoNext = !(selectedMonth == todayMonth && selectedYear == todayYear)
+                    Icon(
+                        Icons.Default.KeyboardArrowRight,
+                        contentDescription = "Next month",
+                        tint = if (canGoNext) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    )
                 }
             }
             
-            // Year dropdown
+            // Filter icon with badge
             Box {
-                Surface(
-                    modifier = Modifier.clickable { showYearPicker = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                IconButton(onClick = { showFilterSheet = true }) {
+                    Icon(
+                        Icons.Default.FilterList,
+                        contentDescription = "Filters",
+                        tint = if (activeFilterCount > 0) headerColor
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (activeFilterCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(headerColor),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "$selectedYear",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                DropdownMenu(
-                    expanded = showYearPicker,
-                    onDismissRequest = { showYearPicker = false }
-                ) {
-                    years.forEach { year ->
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    "$year",
-                                    fontWeight = if (year == selectedYear) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            onClick = {
-                                selectedYear = year
-                                showYearPicker = false
-                            }
+                            text = "$activeFilterCount",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         
         // Date picker row
         val listState = rememberLazyListState()
-        // Scroll so selected day appears at the right edge
         LaunchedEffect(selectedDay, selectedMonth, selectedYear) {
-            val scrollIndex = (selectedDay - 1 - 5).coerceAtLeast(0)
+            val targetIndex = (selectedDay - 1).coerceIn(0, daysInMonth - 1)
+            val scrollIndex = (targetIndex - 5).coerceAtLeast(0)
             listState.animateScrollToItem(scrollIndex)
         }
         
         LazyRow(
             state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(daysInMonth) { index ->
                 val day = index + 1
-                val dayCalendar = java.util.Calendar.getInstance().apply {
-                    set(java.util.Calendar.YEAR, selectedYear)
-                    set(java.util.Calendar.MONTH, selectedMonth)
-                    set(java.util.Calendar.DAY_OF_MONTH, day)
-                }
-                val isToday = day == todayDay && selectedMonth == todayMonth && selectedYear == todayYear
+                val isSelected = selectedDay == day
+                val isToday = todayDay == day && todayMonth == selectedMonth && todayYear == selectedYear
                 val isFuture = (selectedYear > todayYear) ||
                     (selectedYear == todayYear && selectedMonth > todayMonth) ||
                     (selectedYear == todayYear && selectedMonth == todayMonth && day > todayDay)
-                val dayOfWeek = java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault())
-                    .format(dayCalendar.time)
-                val isSelected = selectedDay == day
+                val dayOfWeek = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.YEAR, selectedYear)
+                    set(java.util.Calendar.MONTH, selectedMonth)
+                    set(java.util.Calendar.DAY_OF_MONTH, day)
+                }.getDisplayName(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.SHORT, java.util.Locale.getDefault())
                 
-                Column(
-                    modifier = Modifier
-                        .width(56.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            when {
-                                isFuture -> Color.Transparent
-                                isSelected -> headerColor
-                                isToday -> headerColor.copy(alpha = 0.1f)
-                                else -> Color.Transparent
+                Surface(
+                    onClick = { if (!isFuture) selectedDay = day },
+                    shape = RoundedCornerShape(12.dp),
+                    color = when {
+                        isFuture -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
+                        isSelected -> headerColor
+                        isToday -> headerColor.copy(alpha = 0.3f)
+                        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+                    }
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = dayOfWeek ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when {
+                                isFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                isSelected -> Color.White
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
                         )
-                        .clickable(enabled = !isFuture) { selectedDay = day }
-                        .padding(vertical = 12.dp),
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = dayOfWeek,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = when {
-                            isFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                            isSelected -> Color.White
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "$day",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                            isSelected -> Color.White
-                            else -> MaterialTheme.colorScheme.onSurface
-                        }
-                    )
+                        Text(
+                            text = "$day",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                isSelected -> Color.White
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         // Orders count for selected date
         Text(
             text = "${filteredTasks.size} ${stringResource(R.string.orders_on_date)}",
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp)
         )
@@ -494,31 +621,268 @@ private fun SupervisorWorkSummaryContent(
         Spacer(modifier = Modifier.height(12.dp))
         
         // Orders list
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (filteredTasks.isNotEmpty()) {
+        if (filteredTasks.isEmpty()) {
+            Text(
+                text = stringResource(R.string.no_orders_on_date),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 items(filteredTasks, key = { it.id }) { task ->
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        SupervisorWorkSummaryCard(
-                            task = task,
-                            onClick = { onTaskClick(task.id) }
-                        )
+                    SupervisorWorkSummaryCard(
+                        task = task,
+                        onClick = { onTaskClick(task.id) }
+                    )
+                }
+            }
+        }
+    }
+    
+    // Filter Bottom Sheet
+    if (showFilterSheet) {
+        var statusDropdownExpanded by remember { mutableStateOf(false) }
+        var technicianDropdownExpanded by remember { mutableStateOf(false) }
+        val selectedStatusLabel = statusFilters.find { it.first == selectedStatusFilter }?.second ?: "All"
+        val selectedTechnicianLabel = if (selectedTechnicianId != null) {
+            technicians.find { it.id == selectedTechnicianId }?.name ?: "Unknown"
+        } else "All Technicians"
+        
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Title row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Filter & Sort",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (activeFilterCount > 0) {
+                        Surface(
+                            onClick = {
+                                selectedStatusFilter = null
+                                selectedTechnicianId = null
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Text(
+                                text = "Reset All",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
                     }
                 }
-            } else {
-                item {
-                    Text(
-                        text = stringResource(R.string.no_orders_on_date),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp)
-                    )
+                
+                // Technician dropdown
+                Text(
+                    text = "Technician",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        onClick = { technicianDropdownExpanded = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(
+                            1.dp,
+                            if (selectedTechnicianId != null) headerColor
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = selectedTechnicianLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (selectedTechnicianId != null) FontWeight.Medium else FontWeight.Normal,
+                                color = if (selectedTechnicianId != null) headerColor
+                                    else MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = technicianDropdownExpanded,
+                        onDismissRequest = { technicianDropdownExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.85f)
+                    ) {
+                        // All option
+                        DropdownMenuItem(
+                            text = { Text("All Technicians") },
+                            onClick = {
+                                selectedTechnicianId = null
+                                technicianDropdownExpanded = false
+                            },
+                            leadingIcon = if (selectedTechnicianId == null) {
+                                { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                        // Individual technicians
+                        technicians.forEach { technician ->
+                            val isSelected = selectedTechnicianId == technician.id
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(
+                                            technician.name,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = technician.phoneNumber,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedTechnicianId = technician.id
+                                    technicianDropdownExpanded = false
+                                },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+                
+                // Order Status dropdown
+                Text(
+                    text = "Order Status",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        onClick = { statusDropdownExpanded = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(
+                            1.dp,
+                            if (selectedStatusFilter != null) headerColor
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (selectedStatusFilter != null) {
+                                    val dotColor = when (selectedStatusFilter) {
+                                        0 -> Color(0xFF9E9E9E)
+                                        1 -> Color(0xFF2196F3)
+                                        2 -> Color(0xFFFF9800)
+                                        3 -> Color(0xFF4CAF50)
+                                        4 -> SuccessGreen
+                                        else -> headerColor
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(dotColor)
+                                    )
+                                }
+                                Text(
+                                    text = selectedStatusLabel,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (selectedStatusFilter != null) FontWeight.Medium else FontWeight.Normal,
+                                    color = if (selectedStatusFilter != null) headerColor
+                                        else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = statusDropdownExpanded,
+                        onDismissRequest = { statusDropdownExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.85f)
+                    ) {
+                        statusFilters.forEach { (filterValue, label) ->
+                            val isSelected = selectedStatusFilter == filterValue
+                            val dotColor = when (filterValue) {
+                                0 -> Color(0xFF9E9E9E)
+                                1 -> Color(0xFF2196F3)
+                                2 -> Color(0xFFFF9800)
+                                3 -> Color(0xFF4CAF50)
+                                4 -> SuccessGreen
+                                else -> null
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        if (dotColor != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .clip(CircleShape)
+                                                    .background(dotColor)
+                                            )
+                                        }
+                                        Text(label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                },
+                                onClick = {
+                                    selectedStatusFilter = filterValue
+                                    statusDropdownExpanded = false
+                                },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                                } else null
+                            )
+                        }
+                    }
                 }
             }
         }

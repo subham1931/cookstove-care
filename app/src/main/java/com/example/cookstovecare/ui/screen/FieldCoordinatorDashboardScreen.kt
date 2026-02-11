@@ -287,7 +287,8 @@ fun FieldCoordinatorDashboardScreen(
                     onTaskCreatedSuccess = {
                         showCreateTaskModal = false
                         showTaskCreatedSuccess = true
-                    }
+                    },
+                    isFieldCoordinator = true
                 )
             }
         }
@@ -641,6 +642,7 @@ private fun FieldCoordinatorWorkSummaryContent(
     var selectedMonth by remember { mutableStateOf(todayMonth) }
     var selectedYear by remember { mutableStateOf(todayYear) }
     var selectedDay by remember { mutableStateOf(todayDay) }
+    var showMonthYearPicker by remember { mutableStateOf(false) }
     // Field Officer filter state
     var fieldOfficers by remember { mutableStateOf<List<FieldOfficerInfo>>(emptyList()) }
     var selectedFieldOfficer by remember { mutableStateOf<String?>(null) } // null = All
@@ -810,12 +812,117 @@ private fun FieldCoordinatorWorkSummaryContent(
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                Text(
-                    text = "${monthNames[selectedMonth]} $selectedYear",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                // Tappable month-year text with year grid picker
+                Box {
+                    Surface(
+                        onClick = { showMonthYearPicker = !showMonthYearPicker },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Transparent
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "${monthNames[selectedMonth]} $selectedYear",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    // Year grid picker dropdown
+                    DropdownMenu(
+                        expanded = showMonthYearPicker,
+                        onDismissRequest = { showMonthYearPicker = false }
+                    ) {
+                        val startYear = 1990
+                        val allYears = (startYear..todayYear).toList().reversed() // newest first
+                        val columns = 4
+                        val rowCount = (allYears.size + columns - 1) / columns
+                        // Find the row index of the selected year so we can auto-scroll
+                        val selectedIndex = allYears.indexOf(selectedYear)
+                        val selectedRowIndex = if (selectedIndex >= 0) selectedIndex / columns else 0
+                        val yearListState = rememberLazyListState()
+                        
+                        // Auto-scroll to selected year row
+                        LaunchedEffect(showMonthYearPicker) {
+                            if (showMonthYearPicker) {
+                                yearListState.scrollToItem((selectedRowIndex - 1).coerceAtLeast(0))
+                            }
+                        }
+                        
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .width(260.dp)
+                        ) {
+                            Text(
+                                text = "Select Year",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            
+                            // Scrollable year grid with fixed height
+                            LazyColumn(
+                                state = yearListState,
+                                modifier = Modifier.height(240.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                items(rowCount) { row ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        for (col in 0 until columns) {
+                                            val index = row * columns + col
+                                            if (index < allYears.size) {
+                                                val year = allYears[index]
+                                                val isSelected = selectedYear == year
+                                                Surface(
+                                                    onClick = {
+                                                        selectedYear = year
+                                                        if (year == todayYear && selectedMonth > todayMonth) {
+                                                            selectedMonth = todayMonth
+                                                        }
+                                                        selectedDay = 1
+                                                        showMonthYearPicker = false
+                                                    },
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = if (isSelected) headerColor
+                                                        else Color.Transparent,
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Text(
+                                                        text = "$year",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (isSelected) Color.White
+                                                            else MaterialTheme.colorScheme.onSurface,
+                                                        textAlign = TextAlign.Center,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(vertical = 10.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 IconButton(
                     onClick = {
                         val isCurrentMonth = selectedMonth == todayMonth && selectedYear == todayYear

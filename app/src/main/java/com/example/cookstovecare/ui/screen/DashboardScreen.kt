@@ -54,9 +54,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -257,42 +254,41 @@ fun DashboardScreen(
                             stringResource(R.string.dashboard_ready_for_delivery) to allReadyTasks.size,
                             stringResource(R.string.dashboard_delivered) to deliveredTasks.size
                         )
-                        SingleChoiceSegmentedButtonRow(
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
-                                .padding(top = 16.dp)
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 16.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color(0xFF2A2A2A)
                         ) {
-                            tabLabels.forEachIndexed { index, (label, count) ->
-                                SegmentedButton(
-                                    selected = selectedTab == index,
-                                    onClick = { selectedTab = index },
-                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tabLabels.size),
-                                    modifier = Modifier.weight(1f),
-                                    icon = {},
-                                    label = {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = label,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = if (selectedTab == index) Color.White
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = "$count",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = if (selectedTab == index) Color.White
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(0.dp)
+                            ) {
+                                tabLabels.forEachIndexed { index, (label, count) ->
+                                    Surface(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = if (selectedTab == index) MaterialTheme.colorScheme.primary
+                                            else Color.Transparent,
+                                        onClick = { selectedTab = index }
+                                    ) {
+                                        Text(
+                                            text = "$label $count",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal,
+                                            textAlign = TextAlign.Center,
+                                            color = if (selectedTab == index) MaterialTheme.colorScheme.onPrimary
+                                                else Color.White.copy(alpha = 0.7f)
+                                        )
                                     }
-                                )
+                                }
                             }
                         }
                     }

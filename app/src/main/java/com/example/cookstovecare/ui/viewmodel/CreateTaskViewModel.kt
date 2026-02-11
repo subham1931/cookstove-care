@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.cookstovecare.data.local.AuthDataStore
+import com.example.cookstovecare.data.local.FieldOfficerInfo
 import com.example.cookstovecare.data.repository.CookstoveRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,9 @@ data class CreateTaskUiState(
     val errorMessage: String? = null,
     val isLoading: Boolean = false,
     val isLookingUpCustomer: Boolean = false,
-    val createdTaskId: Long? = null
+    val createdTaskId: Long? = null,
+    val fieldOfficers: List<FieldOfficerInfo> = emptyList(),
+    val selectedFieldOfficerId: String? = null // Phone number of selected field officer
 )
 
 class CreateTaskViewModel(
@@ -132,20 +135,36 @@ class CreateTaskViewModel(
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
+    /**
+     * Load all registered field officers for the dropdown selector.
+     * Called when the form is opened by a Field Coordinator.
+     */
+    fun loadFieldOfficers() {
+        viewModelScope.launch {
+            val officers = authDataStore.getAllFieldOfficers()
+            _uiState.value = _uiState.value.copy(fieldOfficers = officers)
+        }
+    }
+
+    fun setSelectedFieldOfficer(phoneNumber: String?) {
+        _uiState.value = _uiState.value.copy(selectedFieldOfficerId = phoneNumber)
+    }
+
     fun saveTask(onError: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             repository.clearCompletedData()
             val state = _uiState.value
-            // Get the current user's phone number to track who created the task
-            val currentUserPhone = authDataStore.phoneNumber.first()
+            // Use selected field officer if set (Field Coordinator flow), otherwise use current user
+            val fieldOfficerPhone = state.selectedFieldOfficerId
+                ?: authDataStore.phoneNumber.first().takeIf { it.isNotBlank() }
             val result = repository.createTask(
                 cookstoveNumber = state.cookstoveNumber,
                 customerName = state.customerName.ifBlank { null },
                 collectionDate = state.collectionDateMillis,
                 receivedProductImageUri = state.receivedProductImageUri,
                 typeOfProcess = state.typeOfProcess,
-                createdByFieldOfficer = currentUserPhone.takeIf { it.isNotBlank() },
+                createdByFieldOfficer = fieldOfficerPhone,
                 deliveryAddress = state.deliveryAddress.ifBlank { null }
             )
             _uiState.value = _uiState.value.copy(isLoading = false)

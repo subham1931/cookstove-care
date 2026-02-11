@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.cookstovecare.R
+import com.example.cookstovecare.data.local.FieldOfficerInfo
 import com.example.cookstovecare.ui.components.ImagePickerCard
 import com.example.cookstovecare.ui.viewmodel.CreateTaskViewModel
 import java.io.File
@@ -105,11 +106,19 @@ private const val TYPE_REPLACEMENT = "REPLACEMENT"
 fun CreateTaskFormContent(
     viewModel: CreateTaskViewModel,
     onTaskCreatedSuccess: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isFieldCoordinator: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+
+    // Load field officers when opened as Field Coordinator
+    if (isFieldCoordinator) {
+        LaunchedEffect(Unit) {
+            viewModel.loadFieldOfficers()
+        }
+    }
 
     val receivedImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -304,6 +313,20 @@ fun CreateTaskFormContent(
                         selectedType = uiState.typeOfProcess,
                         onTypeSelected = { viewModel.setTypeOfProcess(it) }
                     )
+
+                    // Field Officer selector - only for Field Coordinators
+                    if (isFieldCoordinator) {
+                        Text(
+                            text = "Assign Field Officer",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        FieldOfficerDropdown(
+                            fieldOfficers = uiState.fieldOfficers,
+                            selectedPhoneNumber = uiState.selectedFieldOfficerId,
+                            onSelected = { viewModel.setSelectedFieldOfficer(it) }
+                        )
+                    }
                 }
             }
 
@@ -398,6 +421,92 @@ private fun CreateTaskTypeOfProcessDropdown(
                     expanded = false
                 }
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FieldOfficerDropdown(
+    fieldOfficers: List<FieldOfficerInfo>,
+    selectedPhoneNumber: String?,
+    onSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedOfficer = fieldOfficers.find { it.phoneNumber == selectedPhoneNumber }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedOfficer?.displayName ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Field Officer") },
+            placeholder = { Text("Select Field Officer") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                focusedLabelColor = MaterialTheme.colorScheme.primary
+            )
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            if (fieldOfficers.isEmpty()) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "No field officers available",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    onClick = { expanded = false },
+                    enabled = false
+                )
+            } else {
+                fieldOfficers.forEach { officer ->
+                    val isSelected = officer.phoneNumber == selectedPhoneNumber
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = officer.displayName,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                                if (officer.name != null) {
+                                    Text(
+                                        text = officer.phoneNumber,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            onSelected(officer.phoneNumber)
+                            expanded = false
+                        },
+                        trailingIcon = if (isSelected) {
+                            {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        } else null
+                    )
+                }
+            }
         }
     }
 }

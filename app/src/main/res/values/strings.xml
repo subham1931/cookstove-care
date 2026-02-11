@@ -43,7 +43,7 @@
     <string name="profile_role">Role</string>
     <string name="profile_technician_id">Technician ID</string>
     <string name="profile_status">Status</string>
-    <string name="work_summary">Work Summary</string>
+    <string name="work_summary">Orders</string>
     <string name="summary_of_your_work">Summary of Your Work</string>
     <string name="your_current_task_progress">Your current task progress</string>
     <string name="lets_tackle_tasks">Let\'s tackle your tasks</string>
