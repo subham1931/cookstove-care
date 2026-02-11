@@ -77,6 +77,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cookstovecare.R
+import androidx.compose.material.icons.filled.Schedule
 import com.example.cookstovecare.ui.theme.AuthGradientStart
 import com.example.cookstovecare.ui.theme.AuthGradientStartDark
 import com.example.cookstovecare.ui.theme.SuccessGreen
@@ -138,6 +139,15 @@ fun TechnicianDashboardScreen(
     val selectedFilter = TechnicianFilter.entries[selectedTabIndex]
     val filteredTasks = assignedTasks.filter { task ->
         task.statusEnum in selectedFilter.statuses
+    }.let { tasks ->
+        // Sort overdue tasks to top for the To-do tab
+        if (selectedFilter == TechnicianFilter.NEW_TASK) {
+            val now = System.currentTimeMillis()
+            tasks.sortedByDescending { task ->
+                val deadline = task.collectionDate + 2 * 24 * 60 * 60 * 1000L
+                if (now > deadline) 1 else 0
+            }
+        } else tasks
     }
 
     val displayName = technician?.name?.takeIf { it.isNotBlank() } ?: phoneNumber.ifBlank { stringResource(R.string.nav_profile) }
@@ -596,6 +606,33 @@ private fun TechnicianTaskCard(
                 }
             }
             
+            // "Complete by" deadline for assigned / in-progress tasks (2 days from collection)
+            if (!isCompleted) {
+                val completeByDate = Calendar.getInstance().apply {
+                    timeInMillis = task.collectionDate
+                    add(Calendar.DAY_OF_YEAR, 2)
+                }.time
+                val isOverdue = System.currentTimeMillis() > completeByDate.time
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Schedule,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = if (isOverdue) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.complete_by, dateFormat.format(completeByDate)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isOverdue) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (isOverdue) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+
             // Action buttons for non-completed tasks
             if (!isCompleted) {
                 Spacer(modifier = Modifier.height(12.dp))

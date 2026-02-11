@@ -67,15 +67,15 @@ class TaskDetailViewModel(
                 _uiState.value.task?.statusEnum == TaskStatus.IN_PROGRESS
 
     /**
-     * Supervisor completes a replacement by providing the new cookstove number.
+     * Supervisor completes a replacement (no new cookstove number needed;
+     * the Field Officer will provide new stove details at delivery).
      */
     fun supervisorCompleteReplacement(
-        newCookstoveNumber: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            repository.supervisorCompleteReplacement(_taskId, newCookstoveNumber)
+            repository.supervisorCompleteReplacement(_taskId)
                 .fold(
                     onSuccess = {
                         loadTaskDetail()

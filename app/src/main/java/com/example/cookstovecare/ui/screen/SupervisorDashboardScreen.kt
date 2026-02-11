@@ -111,6 +111,8 @@ fun SupervisorDashboardScreen(
     val userRole by authDataStore.userRole.collectAsState(initial = UserRole.SUPERVISOR)
     var selectedBottomTab by rememberSaveable { mutableStateOf(SupervisorTab.TASKS) }
     var homeFilterIndex by rememberSaveable { mutableStateOf(0) }
+    // Technicians and demo data are now seeded globally in NavGraph
+
     androidx.compose.runtime.LaunchedEffect(Unit) {
         navController.getBackStackEntry(NavRoutes.SUPERVISOR_DASHBOARD)?.savedStateHandle?.get<Int>("returnTab")?.let { tabOrdinal ->
             if (tabOrdinal in SupervisorTab.entries.indices) {

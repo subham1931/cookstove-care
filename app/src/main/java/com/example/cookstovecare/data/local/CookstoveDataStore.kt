@@ -150,7 +150,15 @@ class CookstoveDataStore(private val context: Context) {
         }
     }
 
-    suspend fun updateTaskDistribution(taskId: Long, distributionDate: Long, distributionImageUri: String?) {
+    suspend fun updateTaskDistribution(
+        taskId: Long,
+        distributionDate: Long,
+        distributionImageUri: String?,
+        distributionComment: String? = null,
+        newStoveNumber: String? = null,
+        newStoveImageUri: String? = null,
+        customerReview: String? = null
+    ) {
         context.dataStore.edit { editPrefs ->
             val json = editPrefs[tasksKey] ?: "[]"
             @Suppress("UNCHECKED_CAST")
@@ -160,6 +168,10 @@ class CookstoveDataStore(private val context: Context) {
                 dtos[idx] = dtos[idx].copy(
                     distributionDate = distributionDate,
                     distributionImageUri = distributionImageUri,
+                    distributionComment = distributionComment,
+                    newStoveNumber = newStoveNumber,
+                    newStoveImageUri = newStoveImageUri,
+                    customerReview = customerReview,
                     status = "DISTRIBUTED"
                 )
                 editPrefs[tasksKey] = gson.toJson(dtos)
@@ -314,6 +326,11 @@ private data class CookstoveTaskDto(
     val completedAt: Long? = null,
     val distributionDate: Long? = null,
     val distributionImageUri: String? = null,
+    val distributionComment: String? = null,
+    val newStoveNumber: String? = null,
+    val newStoveImageUri: String? = null,
+    val customerReview: String? = null,
+    val deliveryAddress: String? = null,
     val createdAt: Long,
     val createdByFieldOfficer: String? = null
 ) {
@@ -332,6 +349,11 @@ private data class CookstoveTaskDto(
         completedAt = completedAt,
         distributionDate = distributionDate,
         distributionImageUri = distributionImageUri,
+        distributionComment = distributionComment,
+        newStoveNumber = newStoveNumber,
+        newStoveImageUri = newStoveImageUri,
+        customerReview = customerReview,
+        deliveryAddress = deliveryAddress,
         createdAt = createdAt,
         createdByFieldOfficer = createdByFieldOfficer
     )
@@ -351,6 +373,11 @@ private data class CookstoveTaskDto(
             completedAt = t.completedAt,
             distributionDate = t.distributionDate,
             distributionImageUri = t.distributionImageUri,
+            distributionComment = t.distributionComment,
+            newStoveNumber = t.newStoveNumber,
+            newStoveImageUri = t.newStoveImageUri,
+            customerReview = t.customerReview,
+            deliveryAddress = t.deliveryAddress,
             createdAt = t.createdAt,
             createdByFieldOfficer = t.createdByFieldOfficer
         )

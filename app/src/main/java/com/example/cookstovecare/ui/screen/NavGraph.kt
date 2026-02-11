@@ -1,5 +1,6 @@
 package com.example.cookstovecare.ui.screen
 
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,6 +71,49 @@ fun CookstoveCareNavGraph(
         userRole == UserRole.TECHNICIAN -> NavRoutes.TECHNICIAN_DASHBOARD
         userRole == UserRole.FIELD_COORDINATOR -> NavRoutes.FIELD_COORDINATOR_DASHBOARD
         else -> NavRoutes.FIELD_OFFICER_DASHBOARD
+    }
+
+    // Seed demo data once (technicians, field officers, demo task)
+    LaunchedEffect(Unit) {
+        // Seed technicians
+        val seedTechnicians = listOf("7735716835" to "Technician 1", "7735716836" to "Technician 2")
+        for ((phone, name) in seedTechnicians) {
+            if (repository.getTechnicianByPhoneNumber(phone) == null) {
+                repository.createTechnician(name = name, phoneNumber = phone)
+            }
+        }
+        // Seed field officers
+        val seedFieldOfficers = listOf(
+            Triple("7735716831", "1234", "Field Officer 1"),
+            Triple("7735716833", "1234", "Field Officer 2")
+        )
+        for ((phone, password, name) in seedFieldOfficers) {
+            if (app.authDataStore.getRegisteredUser(phone) == null) {
+                app.authDataStore.registerUser(phone, password, name, UserRole.FIELD_OFFICER)
+            }
+        }
+        // Seed demo overdue task (only once)
+        val allTasks = repository.getAllTasks().first()
+        if (allTasks.none { it.cookstoveNumber == "550011223" }) {
+            val feb7 = java.util.Calendar.getInstance().apply {
+                set(2026, java.util.Calendar.FEBRUARY, 7, 10, 0, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val taskId = repository.createTask(
+                cookstoveNumber = "550011223",
+                customerName = "Rajesh Kumar",
+                collectionDate = feb7,
+                typeOfProcess = "REPAIRING",
+                createdByFieldOfficer = "7735716831",
+                deliveryAddress = "Tikabali, Kandhamal, Odisha 762002"
+            ).getOrNull()
+            if (taskId != null) {
+                val tech1 = repository.getTechnicianByPhoneNumber("7735716835")
+                if (tech1 != null) {
+                    repository.assignTaskToTechnician(taskId, tech1.id)
+                }
+            }
+        }
     }
 
     when (isLoggedIn) {
@@ -270,9 +314,16 @@ fun CookstoveCareNavGraph(
                             } else null,
                             canEditCompletedReport = userRole == UserRole.SUPERVISOR,
                             onCompleteOrder = if (userRole == UserRole.FIELD_OFFICER) {
-                                { imageUri ->
+                                { imageUri, comment, newStoveNumber, newStoveImageUri, customerReview ->
                                     scope.launch {
-                                        repository.completeOrderDistribution(taskId, imageUri?.toString())
+                                        repository.completeOrderDistribution(
+                                            taskId,
+                                            imageUri?.toString(),
+                                            comment.ifBlank { null },
+                                            newStoveNumber = newStoveNumber,
+                                            newStoveImageUri = newStoveImageUri?.toString(),
+                                            customerReview = customerReview
+                                        )
                                     }
                                     navController.popBackStack()
                                 }

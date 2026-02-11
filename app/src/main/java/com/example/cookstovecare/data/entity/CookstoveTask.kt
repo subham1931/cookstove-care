@@ -21,6 +21,11 @@ data class CookstoveTask(
     val completedAt: Long? = null,
     val distributionDate: Long? = null,
     val distributionImageUri: String? = null,
+    val distributionComment: String? = null,
+    val newStoveNumber: String? = null,       // New cookstove number given during replacement delivery
+    val newStoveImageUri: String? = null,     // Image of new stove given during replacement delivery
+    val customerReview: String? = null,       // Customer review/feedback at delivery
+    val deliveryAddress: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val createdByFieldOfficer: String? = null // Phone number of the Field Officer who created this task
 ) {

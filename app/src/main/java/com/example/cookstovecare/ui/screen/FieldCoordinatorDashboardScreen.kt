@@ -1,5 +1,6 @@
 package com.example.cookstovecare.ui.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,17 +28,19 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -125,6 +128,7 @@ fun FieldCoordinatorDashboardScreen(
         repository.resetWrongBackfillOnce()
         // Remove stale/test field officers
         authDataStore.removeRegisteredUsers(setOf("3577716831", "7735716733", "7357716831"))
+        // Field officers and demo data are now seeded globally in NavGraph
     }
     
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -314,9 +318,9 @@ private fun FieldCoordinatorHomeContent(
     
     val greetingText = getGreetingText()
     
-    // Fetch field officers for name lookup
+    // Fetch field officers for name lookup (re-fetch when tasks change to handle seed timing)
     var fieldOfficers by remember { mutableStateOf<List<FieldOfficerInfo>>(emptyList()) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(tasks.size) {
         fieldOfficers = authDataStore.getAllFieldOfficers()
     }
     
@@ -447,7 +451,8 @@ private fun StatCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -512,6 +517,7 @@ private fun FieldCoordinatorTaskCard(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         onClick = onClick
     ) {
         Row(
@@ -613,6 +619,7 @@ private fun FieldCoordinatorTaskCard(
 }
 
 /** Field Coordinator Work Summary with date picker UI */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FieldCoordinatorWorkSummaryContent(
     tasks: List<CookstoveTask>,
@@ -634,19 +641,18 @@ private fun FieldCoordinatorWorkSummaryContent(
     var selectedMonth by remember { mutableStateOf(todayMonth) }
     var selectedYear by remember { mutableStateOf(todayYear) }
     var selectedDay by remember { mutableStateOf(todayDay) }
-    var showMonthPicker by remember { mutableStateOf(false) }
-    var showYearPicker by remember { mutableStateOf(false) }
-    
     // Field Officer filter state
     var fieldOfficers by remember { mutableStateOf<List<FieldOfficerInfo>>(emptyList()) }
     var selectedFieldOfficer by remember { mutableStateOf<String?>(null) } // null = All
-    var showFieldOfficerPicker by remember { mutableStateOf(false) }
     
     // Status filter state: null = All, or specific status
     var selectedStatusFilter by remember { mutableStateOf<Int?>(null) } // null=All, 0=New, 1=Assigned, 2=Processing, 3=Repaired, 4=Delivered
     
-    // Fetch field officers
-    LaunchedEffect(Unit) {
+    // Filter sheet state
+    var showFilterSheet by remember { mutableStateOf(false) }
+    
+    // Fetch field officers (re-fetch when tasks change to handle seed timing)
+    LaunchedEffect(tasks.size) {
         fieldOfficers = authDataStore.getAllFieldOfficers()
     }
     
@@ -704,10 +710,27 @@ private fun FieldCoordinatorWorkSummaryContent(
     
     val monthNames = listOf("January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December")
-    val years = (todayYear - 5..todayYear + 1).toList()
     
-    val selectedOfficerName = if (selectedFieldOfficer == coordinatorFilterValue) displayName
-        else fieldOfficers.find { it.phoneNumber == selectedFieldOfficer }?.displayName
+    // Status labels for filter sheet (must be outside Column for ModalBottomSheet access)
+    val statusNewLabel = stringResource(R.string.status_new)
+    val statusAssignedLabel = stringResource(R.string.status_assigned)
+    val statusProcessingLabel = stringResource(R.string.status_processing)
+    val statusRepairedLabel = stringResource(R.string.status_repaired)
+    val statusDeliveredLabel = stringResource(R.string.status_distributed)
+    
+    val statusFilters = remember(statusNewLabel, statusAssignedLabel, statusProcessingLabel, statusRepairedLabel, statusDeliveredLabel) {
+        listOf(
+            null to "All",
+            0 to statusNewLabel,
+            1 to statusAssignedLabel,
+            2 to statusProcessingLabel,
+            3 to statusRepairedLabel,
+            4 to statusDeliveredLabel
+        )
+    }
+    
+    // Active filter count for badge
+    val activeFilterCount = (if (selectedFieldOfficer != null) 1 else 0) + (if (selectedStatusFilter != null) 1 else 0)
 
     Column(modifier = modifier) {
         // Orders Header
@@ -757,286 +780,105 @@ private fun FieldCoordinatorWorkSummaryContent(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Field Officer Filter
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-        ) {
-            Surface(
-                onClick = { showFieldOfficerPicker = true },
-                shape = RoundedCornerShape(12.dp),
-                color = if (selectedFieldOfficer != null) headerColor.copy(alpha = 0.15f) 
-                    else MaterialTheme.colorScheme.surfaceContainerHigh,
-                border = if (selectedFieldOfficer != null) 
-                    androidx.compose.foundation.BorderStroke(1.dp, headerColor) 
-                    else null
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.FilterList,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = if (selectedFieldOfficer != null) headerColor 
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = when {
-                                selectedFieldOfficer == null -> "All"
-                                selectedFieldOfficer == coordinatorFilterValue -> "By You"
-                                else -> selectedOfficerName ?: selectedFieldOfficer!!
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (selectedFieldOfficer != null) FontWeight.Medium else FontWeight.Normal,
-                            color = if (selectedFieldOfficer != null) headerColor 
-                                else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-            }
-            DropdownMenu(
-                expanded = showFieldOfficerPicker, 
-                onDismissRequest = { showFieldOfficerPicker = false }
-            ) {
-                // "All" option
-                DropdownMenuItem(
-                    text = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Group,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text("All")
-                        }
-                    },
-                    onClick = { 
-                        selectedFieldOfficer = null
-                        showFieldOfficerPicker = false 
-                    },
-                    leadingIcon = if (selectedFieldOfficer == null) {
-                        { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
-                    } else null
-                )
-                // "Coordinator" option
-                val isCoordinatorSelected = selectedFieldOfficer == coordinatorFilterValue
-                DropdownMenuItem(
-                    text = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "By You",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = coordinatorPhone,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    },
-                    onClick = { 
-                        selectedFieldOfficer = coordinatorFilterValue
-                        showFieldOfficerPicker = false 
-                    },
-                    leadingIcon = if (isCoordinatorSelected) {
-                        { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
-                    } else null
-                )
-                // Individual field officers
-                fieldOfficers.forEach { officer ->
-                    val isSelected = selectedFieldOfficer == officer.phoneNumber
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Column {
-                                    Text(
-                                        text = officer.displayName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    if (officer.name != null) {
-                                        Text(
-                                            text = officer.phoneNumber,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        onClick = { 
-                            selectedFieldOfficer = officer.phoneNumber
-                            showFieldOfficerPicker = false 
-                        },
-                        leadingIcon = if (isSelected) {
-                            { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
-                        } else null
-                    )
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(10.dp))
-        
-        // Status Filter Chips
-        val statusNewLabel = stringResource(R.string.status_new)
-        val statusAssignedLabel = stringResource(R.string.status_assigned)
-        val statusProcessingLabel = stringResource(R.string.status_processing)
-        val statusRepairedLabel = stringResource(R.string.status_repaired)
-        val statusDeliveredLabel = stringResource(R.string.status_distributed)
-        
-        val statusFilters = remember(statusNewLabel, statusAssignedLabel, statusProcessingLabel, statusRepairedLabel, statusDeliveredLabel) {
-            listOf(
-                null to "All",
-                0 to statusNewLabel,
-                1 to statusAssignedLabel,
-                2 to statusProcessingLabel,
-                3 to statusRepairedLabel,
-                4 to statusDeliveredLabel
-            )
-        }
-        
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(statusFilters.size) { index ->
-                val (filterValue, label) = statusFilters[index]
-                val isSelected = selectedStatusFilter == filterValue
-                val chipColor = when (filterValue) {
-                    0 -> Color(0xFF9E9E9E)       // New - grey
-                    1 -> Color(0xFF2196F3)        // Assigned - blue
-                    2 -> Color(0xFFFF9800)        // Processing - orange
-                    3 -> Color(0xFF4CAF50)        // Repaired - green
-                    4 -> SuccessGreen             // Delivered - success green
-                    else -> headerColor           // All - primary
-                }
-                Surface(
-                    onClick = { selectedStatusFilter = filterValue },
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (isSelected) chipColor else MaterialTheme.colorScheme.surfaceContainerHigh,
-                    border = if (!isSelected) androidx.compose.foundation.BorderStroke(
-                        1.dp, MaterialTheme.colorScheme.outlineVariant
-                    ) else null
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                    )
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(10.dp))
-        
-        // Month and Year selector
+        // Month nav row: [<] February 2026 [>] ... [filter icon]
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Month dropdown
-            Box(modifier = Modifier.weight(1f)) {
-                Surface(
-                    onClick = { showMonthPicker = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+            // Month navigation
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        if (selectedMonth == 0) {
+                            selectedMonth = 11
+                            selectedYear -= 1
+                        } else {
+                            selectedMonth -= 1
+                        }
+                        selectedDay = 1
+                    },
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(monthNames[selectedMonth], style = MaterialTheme.typography.bodyMedium)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
+                    Icon(
+                        Icons.Default.KeyboardArrowLeft,
+                        contentDescription = "Previous month",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-                DropdownMenu(expanded = showMonthPicker, onDismissRequest = { showMonthPicker = false }) {
-                    monthNames.forEachIndexed { index, month ->
-                        DropdownMenuItem(
-                            text = { Text(month) },
-                            onClick = { selectedMonth = index; showMonthPicker = false }
-                        )
-                    }
+                Text(
+                    text = "${monthNames[selectedMonth]} $selectedYear",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                IconButton(
+                    onClick = {
+                        val isCurrentMonth = selectedMonth == todayMonth && selectedYear == todayYear
+                        if (!isCurrentMonth) {
+                            if (selectedMonth == 11) {
+                                selectedMonth = 0
+                                selectedYear += 1
+                            } else {
+                                selectedMonth += 1
+                            }
+                            selectedDay = 1
+                        }
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    val canGoNext = !(selectedMonth == todayMonth && selectedYear == todayYear)
+                    Icon(
+                        Icons.Default.KeyboardArrowRight,
+                        contentDescription = "Next month",
+                        tint = if (canGoNext) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    )
                 }
             }
             
-            // Year dropdown
+            // Filter icon with badge
             Box {
-                Surface(
-                    onClick = { showYearPicker = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("$selectedYear", style = MaterialTheme.typography.bodyMedium)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
+                IconButton(onClick = { showFilterSheet = true }) {
+                    Icon(
+                        Icons.Default.FilterList,
+                        contentDescription = "Filters",
+                        tint = if (activeFilterCount > 0) headerColor
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                DropdownMenu(expanded = showYearPicker, onDismissRequest = { showYearPicker = false }) {
-                    years.forEach { year ->
-                        DropdownMenuItem(
-                            text = { Text("$year") },
-                            onClick = { selectedYear = year; showYearPicker = false }
+                if (activeFilterCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(headerColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "$activeFilterCount",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         
         // Date picker row
         val dateListState = rememberLazyListState()
         
-        // Scroll so selected day appears at the end (right side)
         LaunchedEffect(selectedDay, selectedMonth, selectedYear) {
             val targetIndex = (selectedDay - 1).coerceIn(0, daysInMonth - 1)
-            // Show selected day at the right edge (~5 items visible, so offset back by 5)
             val scrollIndex = (targetIndex - 5).coerceAtLeast(0)
             dateListState.animateScrollToItem(scrollIndex)
         }
@@ -1098,7 +940,7 @@ private fun FieldCoordinatorWorkSummaryContent(
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         // Orders count
         Text(
@@ -1136,6 +978,273 @@ private fun FieldCoordinatorWorkSummaryContent(
             }
         }
     }
+    
+    // Filter Bottom Sheet
+    if (showFilterSheet) {
+        // Local dropdown expand states
+        var officerDropdownExpanded by remember { mutableStateOf(false) }
+        var statusDropdownExpanded by remember { mutableStateOf(false) }
+        
+        // Resolve display labels
+        val selectedOfficerLabel = when (selectedFieldOfficer) {
+            null -> "All Field Officers"
+            coordinatorFilterValue -> "By You"
+            else -> fieldOfficers.find { it.phoneNumber == selectedFieldOfficer }?.displayName
+                ?: selectedFieldOfficer!!
+        }
+        val selectedStatusLabel = statusFilters.find { it.first == selectedStatusFilter }?.second ?: "All"
+        
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Title row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Filter & Sort",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (activeFilterCount > 0) {
+                        Surface(
+                            onClick = {
+                                selectedFieldOfficer = null
+                                selectedStatusFilter = null
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Text(
+                                text = "Reset All",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+                
+                // Field Officer dropdown
+                Text(
+                    text = "Field Officer",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        onClick = { officerDropdownExpanded = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(
+                            1.dp,
+                            if (selectedFieldOfficer != null) headerColor
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = selectedOfficerLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (selectedFieldOfficer != null) FontWeight.Medium else FontWeight.Normal,
+                                color = if (selectedFieldOfficer != null) headerColor
+                                    else MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = officerDropdownExpanded,
+                        onDismissRequest = { officerDropdownExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.85f)
+                    ) {
+                        // All option
+                        DropdownMenuItem(
+                            text = { Text("All Field Officers") },
+                            onClick = {
+                                selectedFieldOfficer = null
+                                officerDropdownExpanded = false
+                            },
+                            leadingIcon = if (selectedFieldOfficer == null) {
+                                { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                        // By You option
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text("By You", fontWeight = FontWeight.Medium)
+                                    Text(
+                                        text = coordinatorPhone,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = {
+                                selectedFieldOfficer = coordinatorFilterValue
+                                officerDropdownExpanded = false
+                            },
+                            leadingIcon = if (selectedFieldOfficer == coordinatorFilterValue) {
+                                { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                        // Individual field officers
+                        fieldOfficers.forEach { officer ->
+                            val isSelected = selectedFieldOfficer == officer.phoneNumber
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(officer.displayName, fontWeight = FontWeight.Medium)
+                                        if (officer.name != null) {
+                                            Text(
+                                                text = officer.phoneNumber,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    selectedFieldOfficer = officer.phoneNumber
+                                    officerDropdownExpanded = false
+                                },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+                
+                // Order Status dropdown
+                Text(
+                    text = "Order Status",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        onClick = { statusDropdownExpanded = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(
+                            1.dp,
+                            if (selectedStatusFilter != null) headerColor
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Color dot for selected status
+                                if (selectedStatusFilter != null) {
+                                    val dotColor = when (selectedStatusFilter) {
+                                        0 -> Color(0xFF9E9E9E)
+                                        1 -> Color(0xFF2196F3)
+                                        2 -> Color(0xFFFF9800)
+                                        3 -> Color(0xFF4CAF50)
+                                        4 -> SuccessGreen
+                                        else -> headerColor
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(dotColor)
+                                    )
+                                }
+                                Text(
+                                    text = selectedStatusLabel,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (selectedStatusFilter != null) FontWeight.Medium else FontWeight.Normal,
+                                    color = if (selectedStatusFilter != null) headerColor
+                                        else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = statusDropdownExpanded,
+                        onDismissRequest = { statusDropdownExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.85f)
+                    ) {
+                        statusFilters.forEach { (filterValue, label) ->
+                            val isSelected = selectedStatusFilter == filterValue
+                            val dotColor = when (filterValue) {
+                                0 -> Color(0xFF9E9E9E)
+                                1 -> Color(0xFF2196F3)
+                                2 -> Color(0xFFFF9800)
+                                3 -> Color(0xFF4CAF50)
+                                4 -> SuccessGreen
+                                else -> null
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        if (dotColor != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .clip(CircleShape)
+                                                    .background(dotColor)
+                                            )
+                                        }
+                                        Text(label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                },
+                                onClick = {
+                                    selectedStatusFilter = filterValue
+                                    statusDropdownExpanded = false
+                                },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp)) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** Field Officers List content */
@@ -1152,8 +1261,9 @@ private fun FieldOfficersListContent(
     
     // Fetch field officers on launch and on refresh
     LaunchedEffect(refreshKey) {
+        // Small delay on first load to let NavGraph seed complete
+        if (refreshKey == 0) kotlinx.coroutines.delay(500)
         val officers = authDataStore.getAllFieldOfficers()
-        android.util.Log.d("FieldOfficers", "Fetched ${officers.size} field officers: ${officers.map { it.phoneNumber }}")
         fieldOfficers = officers
     }
 
@@ -1244,7 +1354,8 @@ private fun FieldOfficerCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier

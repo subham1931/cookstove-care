@@ -62,10 +62,11 @@ import com.example.cookstovecare.ui.viewmodel.SupervisorTaskListViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-/** Filter mode for task list: Orders (new/unassigned) -> Assigned (assigned to technician) */
+/** Filter mode for task list: New -> Assigned -> Completed */
 private enum class FilterMode {
-    ORDERS,
-    ASSIGNED
+    NEW,
+    ASSIGNED,
+    COMPLETED
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,21 +81,31 @@ fun SupervisorTaskListScreen(
 ) {
     val tasks by viewModel.tasks.collectAsState(initial = emptyList())
     var filterMode by rememberSaveable { 
-        mutableStateOf(if (initialFilterIndex in FilterMode.entries.indices) FilterMode.entries[initialFilterIndex] else FilterMode.ORDERS) 
+        mutableStateOf(if (initialFilterIndex in FilterMode.entries.indices) FilterMode.entries[initialFilterIndex] else FilterMode.NEW) 
     }
     val isDark = isSystemInDarkTheme()
     val headerColor = if (isDark) AuthGradientStartDark else AuthGradientStart
 
-    // Orders: new tasks (COLLECTED, unassigned) | Assigned: assigned to technician
-    val ordersCount = tasks.count { it.statusEnum == TaskStatus.COLLECTED }
+    // New: unassigned | Assigned: assigned/in-progress | Completed: repaired/replaced/distributed
+    val newCount = tasks.count { it.statusEnum == TaskStatus.COLLECTED }
     val assignedCount = tasks.count {
         it.statusEnum == TaskStatus.ASSIGNED || it.statusEnum == TaskStatus.IN_PROGRESS
     }
+    val completedCount = tasks.count {
+        it.statusEnum == TaskStatus.REPAIR_COMPLETED ||
+        it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED ||
+        it.statusEnum == TaskStatus.DISTRIBUTED
+    }
 
     val filteredTasks = when (filterMode) {
-        FilterMode.ORDERS -> tasks.filter { it.statusEnum == TaskStatus.COLLECTED }
+        FilterMode.NEW -> tasks.filter { it.statusEnum == TaskStatus.COLLECTED }
         FilterMode.ASSIGNED -> tasks.filter {
             it.statusEnum == TaskStatus.ASSIGNED || it.statusEnum == TaskStatus.IN_PROGRESS
+        }
+        FilterMode.COMPLETED -> tasks.filter {
+            it.statusEnum == TaskStatus.REPAIR_COMPLETED ||
+            it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED ||
+            it.statusEnum == TaskStatus.DISTRIBUTED
         }
     }
 
@@ -172,10 +183,11 @@ fun SupervisorTaskListScreen(
                             .padding(horizontal = 20.dp)
                             .padding(top = 16.dp)
                     ) {
+                        // New tab
                         SegmentedButton(
-                            selected = filterMode == FilterMode.ORDERS,
-                            onClick = { filterMode = FilterMode.ORDERS },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            selected = filterMode == FilterMode.NEW,
+                            onClick = { filterMode = FilterMode.NEW },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                             modifier = Modifier.weight(1f),
                             icon = {},
                             label = {
@@ -185,26 +197,27 @@ fun SupervisorTaskListScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = stringResource(R.string.filter_orders),
+                                        text = stringResource(R.string.status_new),
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = if (filterMode == FilterMode.ORDERS) Color.White
+                                        color = if (filterMode == FilterMode.NEW) Color.White
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "$ordersCount",
+                                        text = "$newCount",
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = if (filterMode == FilterMode.ORDERS) Color.White
+                                        color = if (filterMode == FilterMode.NEW) Color.White
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
                         )
+                        // Assigned tab
                         SegmentedButton(
                             selected = filterMode == FilterMode.ASSIGNED,
                             onClick = { filterMode = FilterMode.ASSIGNED },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                             modifier = Modifier.weight(1f),
                             icon = {},
                             label = {
@@ -230,6 +243,36 @@ fun SupervisorTaskListScreen(
                                 }
                             }
                         )
+                        // Completed tab
+                        SegmentedButton(
+                            selected = filterMode == FilterMode.COMPLETED,
+                            onClick = { filterMode = FilterMode.COMPLETED },
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                            modifier = Modifier.weight(1f),
+                            icon = {},
+                            label = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.status_completed),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (filterMode == FilterMode.COMPLETED) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "$completedCount",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (filterMode == FilterMode.COMPLETED) Color.White
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -241,8 +284,9 @@ fun SupervisorTaskListScreen(
             if (filteredTasks.isEmpty()) {
                 item {
                     val emptyMessage = when (filterMode) {
-                        FilterMode.ORDERS -> stringResource(R.string.no_orders_yet)
+                        FilterMode.NEW -> stringResource(R.string.no_orders_yet)
                         FilterMode.ASSIGNED -> stringResource(R.string.no_assigned_tasks)
+                        FilterMode.COMPLETED -> stringResource(R.string.no_completed_tasks)
                     }
                     Text(
                         text = emptyMessage,

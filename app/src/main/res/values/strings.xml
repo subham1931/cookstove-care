@@ -48,6 +48,7 @@
     <string name="your_current_task_progress">Your current task progress</string>
     <string name="lets_tackle_tasks">Let\'s tackle your tasks</string>
     <string name="filter_all">All</string>
+    <string name="filter_on_time">On Time</string>
     <string name="filter_new_task">New Task</string>
     <string name="filter_done">Done</string>
     <string name="select_date">Select a date</string>
@@ -123,9 +124,18 @@
     <string name="add_return">Add Return</string>
     <string name="complete_order">Complete Order</string>
     <string name="complete_order_image">Distribution Image (Optional)</string>
+    <string name="complete_order_image_required">Distribution Image (Required)</string>
     <string name="complete_order_title">Complete Order</string>
+    <string name="complete_order_comment">Comments</string>
+    <string name="complete_order_comment_hint">Add any delivery notes or comments…</string>
     <string name="distribution_date">Delivered Date</string>
     <string name="distribution_image">Distribution Image</string>
+    <string name="view_timeline">View timeline</string>
+    <string name="delivery_address">Delivery Address</string>
+    <string name="delivery_address_hint">Enter delivery address…</string>
+    <string name="delivery_comment">Delivery Comment</string>
+    <string name="deliver_by">Deliver by %1$s</string>
+    <string name="complete_by">Complete by %1$s</string>
     <string name="status_distributed">Delivered</string>
     
     <!-- Timeline strings -->
@@ -186,10 +196,11 @@
     <string name="dashboard_task_groups">Task Groups</string>
     <string name="dashboard_processing">Processing</string>
     <string name="dashboard_completed">Completed</string>
+    <string name="dashboard_ready_for_delivery">Ready</string>
     <string name="dashboard_tasks_count">%d Tasks</string>
     <string name="create_new_task">Create New Order</string>
     <string name="cookstove_number">Cookstove Number</string>
-    <string name="task_status">Task Status</string>
+    <string name="task_status">Order Status</string>
     <string name="collection_date">Collection Date</string>
     <string name="no_tasks">No tasks yet. Create your first task.</string>
     <string name="no_tasks_supervisor">No tasks yet</string>
@@ -199,6 +210,10 @@
     <string name="no_orders_on_date">No orders on this date</string>
     <string name="no_in_progress_tasks">No orders in progress</string>
     <string name="no_completed_tasks">No completed orders</string>
+    <string name="dashboard_overdue">Overdue</string>
+    <string name="dashboard_delivered">Delivered</string>
+    <string name="no_overdue_tasks">No overdue orders</string>
+    <string name="no_delivered_tasks">No delivered orders</string>
     <string name="loading">Loading…</string>
     <string name="update">Update</string>
     <string name="delete">Delete</string>

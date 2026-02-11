@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ImageNotSupported
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.ChevronRight
@@ -98,7 +99,7 @@ fun TaskDetailScreen(
     onAddReturnClick: (() -> Unit)? = null,
     onAssignTaskClick: (() -> Unit)? = null,
     canEditCompletedReport: Boolean = true,
-    onCompleteOrder: ((Uri?) -> Unit)? = null,
+    onCompleteOrder: ((Uri?, String, String?, Uri?, String?) -> Unit)? = null,  // imageUri, comment, newStoveNumber, newStoveImageUri, customerReview
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -107,10 +108,18 @@ fun TaskDetailScreen(
     // Complete Order modal state
     var showCompleteOrderModal by remember { mutableStateOf(false) }
     var completeOrderImageUri by remember { mutableStateOf<Uri?>(null) }
+    var completeOrderComment by remember { mutableStateOf("") }
+    // Replacement-specific delivery fields
+    var newStoveNumber by remember { mutableStateOf("") }
+    var newStoveImageUri by remember { mutableStateOf<Uri?>(null) }
+    var customerReview by remember { mutableStateOf("") }
     val completeOrderSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val completeOrderImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { completeOrderImageUri = it } }
+    val newStoveImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { newStoveImageUri = it } }
     
     // Status timeline bottom sheet state
     var showStatusTimeline by remember { mutableStateOf(false) }
@@ -118,7 +127,6 @@ fun TaskDetailScreen(
     
     // Supervisor replacement modal state
     var showReplacementModal by remember { mutableStateOf(false) }
-    var newCookstoveNumber by remember { mutableStateOf("") }
     var replacementError by remember { mutableStateOf<String?>(null) }
     val replacementSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -191,7 +199,7 @@ fun TaskDetailScreen(
                         else -> null
                     }
 
-                    // Task Status row at the top
+                    // ─── STATUS BANNER (informational, not a competing CTA) ───
                     if (userRole != UserRole.TECHNICIAN) {
                         val statusColor = when (task.statusEnum) {
                             TaskStatus.COLLECTED -> MaterialTheme.colorScheme.primary
@@ -209,73 +217,70 @@ fun TaskDetailScreen(
                             TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
                         }
 
-                        // Status chip - full width, clickable
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.12f)),
-                            onClick = { showStatusTimeline = true }
+                        // Status as a subtle info banner — tap shows timeline
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showStatusTimeline = true },
+                            shape = RoundedCornerShape(12.dp),
+                            color = statusColor.copy(alpha = 0.08f),
+                            tonalElevation = 0.dp
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = statusColor,
-                                        modifier = Modifier.size(10.dp)
-                                    ) {}
-                                    Column {
-                                        Text(
-                                            text = stringResource(R.string.task_status),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            text = statusText,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = statusColor
-                                        )
-                                    }
+                                Surface(
+                                    shape = CircleShape,
+                                    color = statusColor,
+                                    modifier = Modifier.size(10.dp)
+                                ) {}
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.task_status),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = statusText,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = statusColor
+                                    )
                                 }
-                                Icon(
-                                    Icons.Default.ChevronRight,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = statusColor
+                                Text(
+                                    text = stringResource(R.string.view_timeline),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        // Info row: Field Officer / Technician
-                        val hasSecondCard = fieldOfficerName != null ||
-                            (userRole == UserRole.SUPERVISOR && (uiState.assignedTechnicianName != null || task.typeOfProcess != "REPLACEMENT"))
+                        // ─── PEOPLE INFO ROW (secondary info cards) ───
+                        val showFieldOfficer = fieldOfficerName != null
+                        val showTechnicianSection = userRole == UserRole.SUPERVISOR &&
+                            (uiState.assignedTechnicianName != null || task.typeOfProcess != "REPLACEMENT")
 
-                        if (hasSecondCard) {
+                        if (showFieldOfficer || showTechnicianSection) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Field Officer card (coordinator only)
-                                if (fieldOfficerName != null) {
-                                    Card(
+                                // Field Officer info (coordinator view)
+                                if (showFieldOfficer) {
+                                    Surface(
                                         modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        tonalElevation = 1.dp
                                     ) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(14.dp),
+                                                .padding(12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
@@ -292,7 +297,7 @@ fun TaskDetailScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Text(
-                                                    text = fieldOfficerName,
+                                                    text = fieldOfficerName!!,
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = MaterialTheme.colorScheme.onSurface
@@ -302,21 +307,27 @@ fun TaskDetailScreen(
                                     }
                                 }
 
-                                // Technician card (supervisor only)
-                                if (userRole == UserRole.SUPERVISOR) {
+                                // Technician info / assign (supervisor view)
+                                if (showTechnicianSection) {
                                     val canChange = task.statusEnum == TaskStatus.ASSIGNED || task.statusEnum == TaskStatus.COLLECTED
                                     if (uiState.assignedTechnicianName != null) {
-                                        Card(
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(16.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                                            onClick = { if (canChange && onAssignTaskClick != null) onAssignTaskClick() }
+                                        // Technician assigned — show info, allow reassign only if work hasn't started
+                                        Surface(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .then(
+                                                    if (canChange && onAssignTaskClick != null)
+                                                        Modifier.clickable { onAssignTaskClick() }
+                                                    else Modifier
+                                                ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            tonalElevation = 1.dp
                                         ) {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(14.dp),
+                                                    .padding(12.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
@@ -350,33 +361,23 @@ fun TaskDetailScreen(
                                             }
                                         }
                                     } else if (task.typeOfProcess != "REPLACEMENT") {
-                                        Card(
+                                        // No technician yet — show as the primary CTA
+                                        Button(
+                                            onClick = { onAssignTaskClick?.invoke() },
                                             modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(16.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                                            onClick = { onAssignTaskClick?.invoke() }
+                                            shape = RoundedCornerShape(12.dp)
                                         ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(14.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                            ) {
-                                                Icon(
-                                                    Icons.AutoMirrored.Filled.Assignment,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                Text(
-                                                    text = stringResource(R.string.assign_to_technician),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.Assignment,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = stringResource(R.string.assign_to_technician),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
                                         }
                                     }
                                 }
@@ -529,6 +530,13 @@ fun TaskDetailScreen(
                                         label = stringResource(R.string.collection_date),
                                         value = dateFormat.format(Date(task.collectionDate))
                                     )
+                                    task.deliveryAddress?.let { address ->
+                                        OfficeDataItem(
+                                            icon = Icons.Default.LocationOn,
+                                            label = stringResource(R.string.delivery_address),
+                                            value = address
+                                        )
+                                    }
                                 }
                                 if (repairData != null) {
                                     HorizontalDivider(
@@ -559,6 +567,39 @@ fun TaskDetailScreen(
                                         TaskDetailImageRow(
                                             label = stringResource(R.string.distribution_image),
                                             imageUri = uri
+                                        )
+                                    }
+                                    task.distributionComment?.let { comment ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Edit,
+                                            label = stringResource(R.string.delivery_comment),
+                                            value = comment
+                                        )
+                                    }
+                                    
+                                    // New stove details (replacement delivery)
+                                    task.newStoveNumber?.let { number ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Tag,
+                                            label = "New Stove Number",
+                                            value = number
+                                        )
+                                    }
+                                    task.newStoveImageUri?.let { uri ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        TaskDetailImageRow(
+                                            label = "New Stove Image",
+                                            imageUri = uri
+                                        )
+                                    }
+                                    task.customerReview?.let { review ->
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Person,
+                                            label = "Customer Review",
+                                            value = review
                                         )
                                     }
                                     
@@ -700,10 +741,15 @@ fun TaskDetailScreen(
     
     // Complete Order Modal
     if (showCompleteOrderModal) {
+        val isReplacementTask = uiState.task?.typeOfProcess == "REPLACEMENT"
         ModalBottomSheet(
             onDismissRequest = { 
                 showCompleteOrderModal = false
                 completeOrderImageUri = null
+                completeOrderComment = ""
+                newStoveNumber = ""
+                newStoveImageUri = null
+                customerReview = ""
             },
             sheetState = completeOrderSheetState
         ) {
@@ -711,7 +757,8 @@ fun TaskDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 32.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
@@ -720,9 +767,9 @@ fun TaskDetailScreen(
                     fontWeight = FontWeight.Bold
                 )
                 
-                // Image picker
+                // Distribution image picker (required for all)
                 Text(
-                    text = stringResource(R.string.complete_order_image),
+                    text = stringResource(R.string.complete_order_image_required),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -732,16 +779,106 @@ fun TaskDetailScreen(
                     onTakePhoto = { /* Camera not needed for now */ },
                     onChooseFromGallery = { completeOrderImagePicker.launch("image/*") }
                 )
+
+                // Replacement-specific: New Stove details section
+                if (isReplacementTask) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    
+                    Text(
+                        text = "New Stove Details",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    // New Stove Number
+                    OutlinedTextField(
+                        value = newStoveNumber,
+                        onValueChange = { newStoveNumber = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("New Stove Number") },
+                        placeholder = { Text("Enter new cookstove number") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Default.Tag, contentDescription = null) }
+                    )
+                    
+                    // New Stove Image
+                    Text(
+                        text = "New Stove Image (Required)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    ImagePickerCard(
+                        imageUri = newStoveImageUri?.toString(),
+                        onTakePhoto = { /* Camera not needed for now */ },
+                        onChooseFromGallery = { newStoveImagePicker.launch("image/*") }
+                    )
+                    
+                    // Customer Review
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    
+                    Text(
+                        text = "Customer Review",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    OutlinedTextField(
+                        value = customerReview,
+                        onValueChange = { customerReview = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Enter customer feedback or review…") },
+                        minLines = 3,
+                        maxLines = 5,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                
+                // Comment / delivery notes field (for all tasks)
+                Text(
+                    text = stringResource(R.string.complete_order_comment),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                OutlinedTextField(
+                    value = completeOrderComment,
+                    onValueChange = { completeOrderComment = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.complete_order_comment_hint)) },
+                    minLines = 3,
+                    maxLines = 5,
+                    shape = RoundedCornerShape(12.dp)
+                )
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
+                // Submit button - requires distribution image + (for replacement: new stove number & image)
+                val isEnabled = if (isReplacementTask) {
+                    completeOrderImageUri != null && newStoveNumber.isNotBlank() && newStoveImageUri != null
+                } else {
+                    completeOrderImageUri != null
+                }
+                
                 Button(
                     onClick = {
-                        onCompleteOrder?.invoke(completeOrderImageUri)
+                        onCompleteOrder?.invoke(
+                            completeOrderImageUri,
+                            completeOrderComment,
+                            newStoveNumber.ifBlank { null },
+                            newStoveImageUri,
+                            customerReview.ifBlank { null }
+                        )
                         showCompleteOrderModal = false
                         completeOrderImageUri = null
+                        completeOrderComment = ""
+                        newStoveNumber = ""
+                        newStoveImageUri = null
+                        customerReview = ""
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = isEnabled
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                     Text(stringResource(R.string.complete_order))
@@ -771,12 +908,11 @@ fun TaskDetailScreen(
         }
     }
     
-    // Supervisor Complete Replacement Modal
+    // Supervisor Complete Replacement Modal (simple confirmation)
     if (showReplacementModal) {
         ModalBottomSheet(
             onDismissRequest = { 
                 showReplacementModal = false
-                newCookstoveNumber = ""
                 replacementError = null
             },
             sheetState = replacementSheetState
@@ -795,45 +931,32 @@ fun TaskDetailScreen(
                 )
                 
                 Text(
-                    text = "Old Cookstove: ${uiState.task?.cookstoveNumber ?: ""}",
+                    text = "Cookstove: ${uiState.task?.cookstoveNumber ?: ""}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                OutlinedTextField(
-                    value = newCookstoveNumber,
-                    onValueChange = { 
-                        newCookstoveNumber = it
-                        replacementError = null
-                    },
-                    label = { Text("New Cookstove Number") },
-                    placeholder = { Text("Enter new cookstove number") },
-                    isError = replacementError != null,
-                    supportingText = replacementError?.let { error ->
-                        { Text(
-                            text = when (error) {
-                                "empty_new_cookstove_number" -> "Please enter a cookstove number"
-                                "old_new_numbers_same" -> "New number must be different from old number"
-                                "duplicate_new_cookstove_number" -> "This cookstove number already exists"
-                                else -> error
-                            },
-                            color = MaterialTheme.colorScheme.error
-                        ) }
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                Text(
+                    text = "Are you sure you want to mark this replacement as completed? The Field Officer will provide the new stove details during delivery.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                
+                if (replacementError != null) {
+                    Text(
+                        text = replacementError ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Button(
                     onClick = {
                         viewModel.supervisorCompleteReplacement(
-                            newCookstoveNumber = newCookstoveNumber,
                             onSuccess = {
                                 showReplacementModal = false
-                                newCookstoveNumber = ""
                                 replacementError = null
                             },
                             onError = { error ->
@@ -841,8 +964,7 @@ fun TaskDetailScreen(
                             }
                         )
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = newCookstoveNumber.isNotBlank()
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                     Text(stringResource(R.string.complete_replacement))

@@ -2,6 +2,7 @@ package com.example.cookstovecare.ui.screen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,15 +23,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -44,6 +48,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
@@ -90,7 +95,12 @@ import com.example.cookstovecare.ui.viewmodel.CreateTaskViewModelFactory
 import com.example.cookstovecare.ui.viewmodel.DashboardViewModel
 import com.example.cookstovecare.ui.viewmodel.EditTaskViewModel
 import com.example.cookstovecare.ui.viewmodel.EditTaskViewModelFactory
+import androidx.compose.material.icons.filled.Schedule
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 
 /** Field Officer bottom nav tabs */
@@ -143,13 +153,17 @@ fun DashboardScreen(
     val pendingTasks = tasks.filter {
         it.statusEnum == TaskStatus.COLLECTED || it.statusEnum == TaskStatus.ASSIGNED || it.statusEnum == TaskStatus.IN_PROGRESS
     }
-    val completedTasks = tasks.filter {
+    val allReadyTasks = tasks.filter {
         it.statusEnum == TaskStatus.REPAIR_COMPLETED || it.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+    }.sortedByDescending { task ->
+        // Overdue tasks first (completedAt + 2 days < now)
+        val deadline = (task.completedAt ?: 0L) + 2 * 24 * 60 * 60 * 1000L
+        if (System.currentTimeMillis() > deadline) 1 else 0
     }
-    val distributedTasks = tasks.filter {
+    val deliveredTasks = tasks.filter {
         it.statusEnum == TaskStatus.DISTRIBUTED
     }
-    var selectedTab by rememberSaveable { mutableStateOf(0) } // 0 = Pending, 1 = Completed
+    var selectedTab by rememberSaveable { mutableStateOf(0) } // 0 = Pending, 1 = Ready for Delivery, 2 = Delivered
 
     val displayName = centerName.ifBlank { phoneNumber }.ifBlank { stringResource(R.string.nav_profile) }
 
@@ -238,86 +252,50 @@ fun DashboardScreen(
                     }
 
                     item {
+                        val tabLabels = listOf(
+                            stringResource(R.string.dashboard_pending) to pendingTasks.size,
+                            stringResource(R.string.dashboard_ready_for_delivery) to allReadyTasks.size,
+                            stringResource(R.string.dashboard_delivered) to deliveredTasks.size
+                        )
                         SingleChoiceSegmentedButtonRow(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp)
                                 .padding(top = 16.dp)
                         ) {
-                    SegmentedButton(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        modifier = Modifier.weight(1f),
-                        icon = { },
-                        label = {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.dashboard_pending),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (selectedTab == 0) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${pendingTasks.size}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (selectedTab == 0) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                            tabLabels.forEachIndexed { index, (label, count) ->
+                                SegmentedButton(
+                                    selected = selectedTab == index,
+                                    onClick = { selectedTab = index },
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tabLabels.size),
+                                    modifier = Modifier.weight(1f),
+                                    icon = {},
+                                    label = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (selectedTab == index) Color.White
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "$count",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = if (selectedTab == index) Color.White
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 )
                             }
                         }
-                    )
-                    SegmentedButton(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        modifier = Modifier.weight(1f),
-                        icon = { },
-                        label = {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.dashboard_completed),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (selectedTab == 1) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${completedTasks.size}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (selectedTab == 1) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            }
-                        }
-                    )
-                }
-            }
+                    }
 
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
@@ -349,8 +327,33 @@ fun DashboardScreen(
                             }
                         }
                         1 -> {
-                            if (completedTasks.isNotEmpty()) {
-                                items(completedTasks, key = { it.id }) { task ->
+                            if (allReadyTasks.isNotEmpty()) {
+                                items(allReadyTasks, key = { it.id }) { task ->
+                                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                        TaskListItem(
+                                            task = task,
+                                            onClick = { onTaskClick(task.id) },
+                                            showDeliveryInfo = true
+                                        )
+                                    }
+                                }
+                            } else {
+                                item {
+                                    Text(
+                                        text = stringResource(R.string.no_completed_tasks),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(32.dp)
+                                    )
+                                }
+                            }
+                        }
+                        2 -> {
+                            if (deliveredTasks.isNotEmpty()) {
+                                items(deliveredTasks, key = { it.id }) { task ->
                                     Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                                         TaskListItem(
                                             task = task,
@@ -361,7 +364,7 @@ fun DashboardScreen(
                             } else {
                                 item {
                                     Text(
-                                        text = stringResource(R.string.no_completed_tasks),
+                                        text = stringResource(R.string.no_delivered_tasks),
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center,
@@ -647,7 +650,7 @@ fun DashboardScreen(
                         if (filteredTasks.isNotEmpty()) {
                             items(filteredTasks, key = { it.id }) { task ->
                                 Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                                    TaskListItem(
+                                    FieldOfficerOrderCard(
                                         task = task,
                                         onClick = { onTaskClick(task.id) }
                                     )
@@ -798,7 +801,8 @@ private fun TaskListItem(
     task: CookstoveTask,
     onClick: () -> Unit,
     onUpdateClick: (() -> Unit)? = null,
-    onDeleteClick: (() -> Unit)? = null
+    onDeleteClick: (() -> Unit)? = null,
+    showDeliveryInfo: Boolean = false
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -814,8 +818,8 @@ private fun TaskListItem(
         TaskStatus.COLLECTED -> stringResource(R.string.not_assigned)
         TaskStatus.ASSIGNED -> stringResource(R.string.status_assigned)
         TaskStatus.IN_PROGRESS -> stringResource(R.string.in_progress_tasks)
-        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED ->
-            stringResource(R.string.status_completed)
+        TaskStatus.REPAIR_COMPLETED -> stringResource(R.string.status_repaired)
+        TaskStatus.REPLACEMENT_COMPLETED -> stringResource(R.string.status_replaced)
         TaskStatus.DISTRIBUTED -> stringResource(R.string.status_distributed)
     }
 
@@ -840,6 +844,15 @@ private fun TaskListItem(
         )
     }
 
+    // Compute deliver-by for ready-for-delivery border tinting
+    val deliverByDate = if (showDeliveryInfo && task.completedAt != null) {
+        Calendar.getInstance().apply {
+            timeInMillis = task.completedAt
+            add(Calendar.DAY_OF_YEAR, 2)
+        }.time
+    } else null
+    val isOverdue = deliverByDate != null && System.currentTimeMillis() > deliverByDate.time
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -854,120 +867,374 @@ private fun TaskListItem(
         ),
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            color = if (showDeliveryInfo && isOverdue) MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .padding(end = 16.dp)
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (task.receivedProductImageUri != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(task.receivedProductImageUri)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.AddPhotoAlternate,
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
+                Box(
+                    modifier = Modifier
+                        .padding(end = 16.dp)
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (task.receivedProductImageUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(task.receivedProductImageUri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.AddPhotoAlternate,
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
                 }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = task.cookstoveNumber,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                processText?.let { text ->
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
-                        text = text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = task.cookstoveNumber,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
+                    processText?.let { text ->
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (!showDeliveryInfo) {
+                        Text(
+                            text = statusSectionText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = when (task.statusEnum) {
+                                TaskStatus.COLLECTED -> MaterialTheme.colorScheme.error
+                                TaskStatus.ASSIGNED -> MaterialTheme.colorScheme.primary
+                                TaskStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
+                                else -> SuccessGreen
+                            }
+                        )
+                    }
                 }
-                Text(
-                    text = statusSectionText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = when (task.statusEnum) {
-                        TaskStatus.COLLECTED -> MaterialTheme.colorScheme.error
-                        TaskStatus.ASSIGNED -> MaterialTheme.colorScheme.primary
-                        TaskStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
-                        else -> SuccessGreen
-                    }
-                )
-            }
-            val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED ||
-                task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
-            val showMenuButton = onUpdateClick != null || onDeleteClick != null
-            if (showMenuButton) {
-                Box {
-                    IconButton(
-                        onClick = { showMenu = true },
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.update))
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.clip(RoundedCornerShape(16.dp))
-                    ) {
-                        if (!isCompleted && onUpdateClick != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.update), style = MaterialTheme.typography.bodyLarge) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    onUpdateClick.invoke()
+                val isCompleted = task.statusEnum == TaskStatus.REPAIR_COMPLETED ||
+                    task.statusEnum == TaskStatus.REPLACEMENT_COMPLETED
+                val showMenuButton = onUpdateClick != null || onDeleteClick != null
+                if (showMenuButton) {
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.update))
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.clip(RoundedCornerShape(16.dp))
+                        ) {
+                            if (!isCompleted && onUpdateClick != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.update), style = MaterialTheme.typography.bodyLarge) },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onUpdateClick.invoke()
+                                    }
+                                )
+                                if (onDeleteClick != null) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 12.dp),
+                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                    )
                                 }
-                            )
+                            }
                             if (onDeleteClick != null) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 12.dp),
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(stringResource(R.string.delete), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteDialog = true
+                                    }
                                 )
                             }
                         }
-                        if (onDeleteClick != null) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(stringResource(R.string.delete), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    showDeleteDialog = true
-                                }
-                            )
-                        }
+                    }
+                }
+            }
+
+            // Extra delivery info for "Ready for Delivery" tab
+            if (showDeliveryInfo) {
+                // Delivery address
+                task.deliveryAddress?.let { address ->
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2
+                        )
+                    }
+                }
+                // Deliver by deadline
+                deliverByDate?.let { deadline ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val dateFormat = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = if (isOverdue) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.deliver_by, dateFormat.format(deadline)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isOverdue) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (isOverdue) FontWeight.Bold else FontWeight.Normal
+                        )
                     }
                 }
             }
         }
     }
 }
+
+/** Field Officer order card with photo, number, type & progress bar */
+@Composable
+private fun FieldOfficerOrderCard(
+    task: CookstoveTask,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+
+    val currentStep = when (task.statusEnum) {
+        TaskStatus.COLLECTED -> 0
+        TaskStatus.ASSIGNED -> 1
+        TaskStatus.IN_PROGRESS -> 2
+        TaskStatus.REPAIR_COMPLETED, TaskStatus.REPLACEMENT_COMPLETED -> 3
+        TaskStatus.DISTRIBUTED -> 4
+    }
+
+    val processText = task.typeOfProcess?.let { type ->
+        when (type) {
+            "REPAIRING" -> stringResource(R.string.type_repairing)
+            "REPLACEMENT" -> stringResource(R.string.type_replacement)
+            else -> type
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Top row: image + info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Product image
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (task.receivedProductImageUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(task.receivedProductImageUri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.AddPhotoAlternate,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = task.cookstoveNumber,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    processText?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Progress bar
+            FieldOfficerProgressBar(currentStep = currentStep, typeOfProcess = task.typeOfProcess)
+        }
+    }
+}
+
+/** Horizontal progress bar for Field Officer order cards */
+@Composable
+private fun FieldOfficerProgressBar(currentStep: Int, typeOfProcess: String? = null) {
+    val completionLabel = if (typeOfProcess == "REPLACEMENT")
+        stringResource(R.string.status_replaced)
+    else
+        stringResource(R.string.status_repaired)
+    val steps = listOf(
+        stringResource(R.string.status_new),
+        stringResource(R.string.status_assigned),
+        stringResource(R.string.status_processing),
+        completionLabel,
+        stringResource(R.string.status_distributed)
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        steps.forEachIndexed { index, label ->
+            val isCompleted = index <= currentStep
+            val isCurrent = index == currentStep
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (index > 0) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(2.dp)
+                                .background(
+                                    if (index <= currentStep) SuccessGreen
+                                    else MaterialTheme.colorScheme.outlineVariant
+                                )
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isCompleted) SuccessGreen
+                                else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isCompleted) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    if (index < steps.size - 1) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(2.dp)
+                                .background(
+                                    if (index < currentStep) SuccessGreen
+                                    else MaterialTheme.colorScheme.outlineVariant
+                                )
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isCompleted) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+// ReadyForDeliveryCard removed — TaskListItem with showDeliveryInfo=true is used instead

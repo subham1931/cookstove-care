@@ -22,6 +22,8 @@ data class CreateTaskUiState(
     val collectionDateMillis: Long = System.currentTimeMillis(),
     val receivedProductImageUri: String? = null,
     val typeOfProcess: String? = null,
+    val deliveryAddress: String = "",
+    val isAddressAutoFilled: Boolean = false,
     val errorMessage: String? = null,
     val isLoading: Boolean = false,
     val isLookingUpCustomer: Boolean = false,
@@ -45,6 +47,15 @@ class CreateTaskViewModel(
         "777888999" to "Vijay Reddy"
     )
 
+    // Static mock data for address lookup - replace with backend API call later
+    private val mockAddressDatabase = mapOf(
+        "123454321" to "Tikabali, Kandhamal, Odisha 762002",
+        "987654321" to "Rairakhol, Sambalpur, Odisha 768113",
+        "111222333" to "Phulbani, Kandhamal, Odisha 762001",
+        "444555666" to "Joda, Keonjhar, Odisha 758034",
+        "777888999" to "Baliguda, Kandhamal, Odisha 762103"
+    )
+
     fun updateCookstoveNumber(value: String) {
         _uiState.value = _uiState.value.copy(cookstoveNumber = value, errorMessage = null)
         // Lookup customer name when cookstove number is entered
@@ -53,13 +64,14 @@ class CreateTaskViewModel(
 
     private fun lookupCustomerName(cookstoveNumber: String) {
         if (cookstoveNumber.isBlank()) {
-            // Clear auto-filled name if cookstove number is cleared
-            if (_uiState.value.isCustomerNameAutoFilled) {
-                _uiState.value = _uiState.value.copy(
-                    customerName = "",
-                    isCustomerNameAutoFilled = false
-                )
-            }
+            // Clear auto-filled fields if cookstove number is cleared
+            val current = _uiState.value
+            _uiState.value = current.copy(
+                customerName = if (current.isCustomerNameAutoFilled) "" else current.customerName,
+                isCustomerNameAutoFilled = false,
+                deliveryAddress = if (current.isAddressAutoFilled) "" else current.deliveryAddress,
+                isAddressAutoFilled = false
+            )
             return
         }
 
@@ -70,8 +82,8 @@ class CreateTaskViewModel(
             kotlinx.coroutines.delay(300)
             
             // TODO: Replace with actual backend API call
-            // val customerName = api.getCustomerByCookstoveNumber(cookstoveNumber)
             val customerName = mockCustomerDatabase[cookstoveNumber]
+            val address = mockAddressDatabase[cookstoveNumber]
             
             _uiState.value = _uiState.value.copy(isLookingUpCustomer = false)
             
@@ -79,6 +91,12 @@ class CreateTaskViewModel(
                 _uiState.value = _uiState.value.copy(
                     customerName = customerName,
                     isCustomerNameAutoFilled = true
+                )
+            }
+            if (address != null) {
+                _uiState.value = _uiState.value.copy(
+                    deliveryAddress = address,
+                    isAddressAutoFilled = true
                 )
             }
         }
@@ -103,6 +121,13 @@ class CreateTaskViewModel(
         _uiState.value = _uiState.value.copy(typeOfProcess = type?.takeIf { it.isNotBlank() })
     }
 
+    fun updateDeliveryAddress(value: String) {
+        _uiState.value = _uiState.value.copy(
+            deliveryAddress = value,
+            isAddressAutoFilled = false
+        )
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
@@ -120,7 +145,8 @@ class CreateTaskViewModel(
                 collectionDate = state.collectionDateMillis,
                 receivedProductImageUri = state.receivedProductImageUri,
                 typeOfProcess = state.typeOfProcess,
-                createdByFieldOfficer = currentUserPhone.takeIf { it.isNotBlank() }
+                createdByFieldOfficer = currentUserPhone.takeIf { it.isNotBlank() },
+                deliveryAddress = state.deliveryAddress.ifBlank { null }
             )
             _uiState.value = _uiState.value.copy(isLoading = false)
             result.fold(

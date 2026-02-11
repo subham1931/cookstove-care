@@ -203,6 +203,33 @@ fun CreateTaskFormContent(
                             focusedLabelColor = MaterialTheme.colorScheme.primary
                         )
                     )
+                    OutlinedTextField(
+                        value = uiState.deliveryAddress,
+                        onValueChange = { viewModel.updateDeliveryAddress(it) },
+                        label = { Text(stringResource(R.string.delivery_address)) },
+                        placeholder = { Text(stringResource(R.string.delivery_address_hint)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 3,
+                        shape = RoundedCornerShape(12.dp),
+                        trailingIcon = {
+                            if (uiState.isAddressAutoFilled) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        supportingText = if (uiState.isAddressAutoFilled) {
+                            { Text(stringResource(R.string.auto_filled_from_database)) }
+                        } else null,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()

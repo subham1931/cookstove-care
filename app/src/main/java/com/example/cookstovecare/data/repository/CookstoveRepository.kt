@@ -95,7 +95,8 @@ class CookstoveRepository(
         collectionDate: Long,
         receivedProductImageUri: String? = null,
         typeOfProcess: String? = null,
-        createdByFieldOfficer: String? = null
+        createdByFieldOfficer: String? = null,
+        deliveryAddress: String? = null
     ): Result<Long> {
         val trimmedNumber = cookstoveNumber.trim()
         if (trimmedNumber.isEmpty()) {
@@ -111,7 +112,8 @@ class CookstoveRepository(
             status = TaskStatus.COLLECTED.name,
             receivedProductImageUri = receivedProductImageUri?.takeIf { it.isNotBlank() },
             typeOfProcess = typeOfProcess?.takeIf { it.isNotBlank() },
-            createdByFieldOfficer = createdByFieldOfficer
+            createdByFieldOfficer = createdByFieldOfficer,
+            deliveryAddress = deliveryAddress?.trim()?.takeIf { it.isNotEmpty() }
         )
         val id = dataStore.insertTask(task)
         return Result.success(id)
@@ -186,27 +188,15 @@ class CookstoveRepository(
     }
 
     /**
-     * Supervisor-only: complete replacement with just the new cookstove number (no images required).
+     * Supervisor-only: complete replacement (no new cookstove number needed here;
+     * the Field Officer will provide the new stove details during delivery).
      */
-    suspend fun supervisorCompleteReplacement(
-        taskId: Long,
-        newCookstoveNumber: String
-    ): Result<Unit> {
-        val trimmedNew = newCookstoveNumber.trim()
-        if (trimmedNew.isEmpty()) {
-            return Result.failure(IllegalArgumentException("empty_new_cookstove_number"))
-        }
+    suspend fun supervisorCompleteReplacement(taskId: Long): Result<Unit> {
         val task = dataStore.getTaskById(taskId) ?: return Result.failure(IllegalArgumentException("task_not_found"))
-        if (trimmedNew == task.cookstoveNumber) {
-            return Result.failure(IllegalArgumentException("old_new_numbers_same"))
-        }
-        if (dataStore.hasTaskWithNumber(trimmedNew)) {
-            return Result.failure(IllegalArgumentException("duplicate_new_cookstove_number"))
-        }
         val replacementData = ReplacementData(
             taskId = taskId,
             oldCookstoveNumber = task.cookstoveNumber,
-            newCookstoveNumber = trimmedNew,
+            newCookstoveNumber = "",  // Will be filled by Field Officer during delivery
             collectedDate = task.collectionDate,
             replacementDate = System.currentTimeMillis(),
             oldCookstoveImageUri = task.receivedProductImageUri ?: "",
@@ -225,8 +215,20 @@ class CookstoveRepository(
         dataStore.updateTaskReturn(taskId, returnDate, returnImageUri)
     }
 
-    suspend fun completeOrderDistribution(taskId: Long, distributionImageUri: String?) {
-        dataStore.updateTaskDistribution(taskId, System.currentTimeMillis(), distributionImageUri)
+    suspend fun completeOrderDistribution(
+        taskId: Long,
+        distributionImageUri: String?,
+        distributionComment: String? = null,
+        newStoveNumber: String? = null,
+        newStoveImageUri: String? = null,
+        customerReview: String? = null
+    ) {
+        dataStore.updateTaskDistribution(
+            taskId, System.currentTimeMillis(), distributionImageUri, distributionComment,
+            newStoveNumber = newStoveNumber,
+            newStoveImageUri = newStoveImageUri,
+            customerReview = customerReview
+        )
     }
 
     fun getAllTechnicians(): Flow<List<Technician>> = technicianDataStore.allTechnicians
