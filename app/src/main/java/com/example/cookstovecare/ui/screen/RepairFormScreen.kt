@@ -45,15 +45,19 @@ import com.example.cookstovecare.ui.components.ImagePickerCard
 import com.example.cookstovecare.ui.viewmodel.RepairFormViewModel
 import java.io.File
 
-private const val TYPE_TOP_PLACE = "TOP_PLACE"
+private const val TYPE_TOP_REPAIR = "TOP_REPAIR"
+private const val TYPE_TOP_ROUND = "TOP_ROUND"
 private const val TYPE_DOOR_REPAIR = "DOOR_REPAIR"
 private const val TYPE_BOTTOM_REPAIR = "BOTTOM_REPAIR"
+private const val TYPE_LEG_REPAIR = "LEG_REPAIR"
 
 /** Type of repair options */
 private val TYPE_OF_REPAIR_OPTIONS = listOf(
-    TYPE_TOP_PLACE to R.string.type_repair_top_place,
+    TYPE_TOP_REPAIR to R.string.type_repair_top_repair,
+    TYPE_TOP_ROUND to R.string.type_repair_top_round,
     TYPE_DOOR_REPAIR to R.string.type_repair_door_repair,
-    TYPE_BOTTOM_REPAIR to R.string.type_repair_bottom_repair
+    TYPE_BOTTOM_REPAIR to R.string.type_repair_bottom_repair,
+    TYPE_LEG_REPAIR to R.string.type_repair_leg_repair
 )
 
 /**

@@ -25,6 +25,8 @@ data class CreateTaskUiState(
     val typeOfProcess: String? = null,
     val deliveryAddress: String = "",
     val isAddressAutoFilled: Boolean = false,
+    val temporaryCookstoveNumber: String = "",
+    val customerSignatureUri: String? = null,
     val errorMessage: String? = null,
     val isLoading: Boolean = false,
     val isLookingUpCustomer: Boolean = false,
@@ -131,6 +133,14 @@ class CreateTaskViewModel(
         )
     }
 
+    fun updateTemporaryCookstoveNumber(value: String) {
+        _uiState.value = _uiState.value.copy(temporaryCookstoveNumber = value)
+    }
+
+    fun setCustomerSignatureUri(uri: String?) {
+        _uiState.value = _uiState.value.copy(customerSignatureUri = uri)
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
@@ -165,7 +175,9 @@ class CreateTaskViewModel(
                 receivedProductImageUri = state.receivedProductImageUri,
                 typeOfProcess = state.typeOfProcess,
                 createdByFieldOfficer = fieldOfficerPhone,
-                deliveryAddress = state.deliveryAddress.ifBlank { null }
+                deliveryAddress = state.deliveryAddress.ifBlank { null },
+                temporaryCookstoveNumber = state.temporaryCookstoveNumber.ifBlank { null },
+                customerSignatureUri = state.customerSignatureUri
             )
             _uiState.value = _uiState.value.copy(isLoading = false)
             result.fold(

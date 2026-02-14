@@ -96,7 +96,9 @@ class CookstoveRepository(
         receivedProductImageUri: String? = null,
         typeOfProcess: String? = null,
         createdByFieldOfficer: String? = null,
-        deliveryAddress: String? = null
+        deliveryAddress: String? = null,
+        temporaryCookstoveNumber: String? = null,
+        customerSignatureUri: String? = null
     ): Result<Long> {
         val trimmedNumber = cookstoveNumber.trim()
         if (trimmedNumber.isEmpty()) {
@@ -113,7 +115,9 @@ class CookstoveRepository(
             receivedProductImageUri = receivedProductImageUri?.takeIf { it.isNotBlank() },
             typeOfProcess = typeOfProcess?.takeIf { it.isNotBlank() },
             createdByFieldOfficer = createdByFieldOfficer,
-            deliveryAddress = deliveryAddress?.trim()?.takeIf { it.isNotEmpty() }
+            deliveryAddress = deliveryAddress?.trim()?.takeIf { it.isNotEmpty() },
+            temporaryCookstoveNumber = temporaryCookstoveNumber?.trim()?.takeIf { it.isNotEmpty() },
+            customerSignatureUri = customerSignatureUri
         )
         val id = dataStore.insertTask(task)
         return Result.success(id)
@@ -221,13 +225,15 @@ class CookstoveRepository(
         distributionComment: String? = null,
         newStoveNumber: String? = null,
         newStoveImageUri: String? = null,
-        customerReview: String? = null
+        customerReview: String? = null,
+        returnedTempCookstoveNumber: String? = null
     ) {
         dataStore.updateTaskDistribution(
             taskId, System.currentTimeMillis(), distributionImageUri, distributionComment,
             newStoveNumber = newStoveNumber,
             newStoveImageUri = newStoveImageUri,
-            customerReview = customerReview
+            customerReview = customerReview,
+            returnedTempCookstoveNumber = returnedTempCookstoveNumber
         )
     }
 

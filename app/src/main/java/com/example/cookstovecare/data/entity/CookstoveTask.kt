@@ -26,6 +26,8 @@ data class CookstoveTask(
     val newStoveImageUri: String? = null,     // Image of new stove given during replacement delivery
     val customerReview: String? = null,       // Customer review/feedback at delivery
     val deliveryAddress: String? = null,
+    val temporaryCookstoveNumber: String? = null, // Temporary cookstove provided to customer
+    val customerSignatureUri: String? = null,     // Customer acknowledgement signature image
     val createdAt: Long = System.currentTimeMillis(),
     val createdByFieldOfficer: String? = null // Phone number of the Field Officer who created this task
 ) {

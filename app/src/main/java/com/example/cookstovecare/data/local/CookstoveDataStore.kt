@@ -157,7 +157,8 @@ class CookstoveDataStore(private val context: Context) {
         distributionComment: String? = null,
         newStoveNumber: String? = null,
         newStoveImageUri: String? = null,
-        customerReview: String? = null
+        customerReview: String? = null,
+        returnedTempCookstoveNumber: String? = null
     ) {
         context.dataStore.edit { editPrefs ->
             val json = editPrefs[tasksKey] ?: "[]"
@@ -172,6 +173,7 @@ class CookstoveDataStore(private val context: Context) {
                     newStoveNumber = newStoveNumber,
                     newStoveImageUri = newStoveImageUri,
                     customerReview = customerReview,
+                    temporaryCookstoveNumber = returnedTempCookstoveNumber ?: dtos[idx].temporaryCookstoveNumber,
                     status = "DISTRIBUTED"
                 )
                 editPrefs[tasksKey] = gson.toJson(dtos)
@@ -331,6 +333,8 @@ private data class CookstoveTaskDto(
     val newStoveImageUri: String? = null,
     val customerReview: String? = null,
     val deliveryAddress: String? = null,
+    val temporaryCookstoveNumber: String? = null,
+    val customerSignatureUri: String? = null,
     val createdAt: Long,
     val createdByFieldOfficer: String? = null
 ) {
@@ -354,6 +358,8 @@ private data class CookstoveTaskDto(
         newStoveImageUri = newStoveImageUri,
         customerReview = customerReview,
         deliveryAddress = deliveryAddress,
+        temporaryCookstoveNumber = temporaryCookstoveNumber,
+        customerSignatureUri = customerSignatureUri,
         createdAt = createdAt,
         createdByFieldOfficer = createdByFieldOfficer
     )
@@ -378,6 +384,8 @@ private data class CookstoveTaskDto(
             newStoveImageUri = t.newStoveImageUri,
             customerReview = t.customerReview,
             deliveryAddress = t.deliveryAddress,
+            temporaryCookstoveNumber = t.temporaryCookstoveNumber,
+            customerSignatureUri = t.customerSignatureUri,
             createdAt = t.createdAt,
             createdByFieldOfficer = t.createdByFieldOfficer
         )

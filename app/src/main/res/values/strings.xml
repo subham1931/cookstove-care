@@ -280,9 +280,11 @@
     <string name="type_of_repair">Type of Repair</string>
 
     <!-- Type of Repair options -->
-    <string name="type_repair_top_place">Top Place</string>
+    <string name="type_repair_top_repair">Top Repair</string>
+    <string name="type_repair_top_round">Top Round</string>
     <string name="type_repair_door_repair">Door Repair</string>
     <string name="type_repair_bottom_repair">Bottom Repair</string>
+    <string name="type_repair_leg_repair">Leg Repair</string>
 
     <!-- Parts options for multi-select -->
     <string name="part_burner">Burner</string>

@@ -99,7 +99,7 @@ fun TaskDetailScreen(
     onAddReturnClick: (() -> Unit)? = null,
     onAssignTaskClick: (() -> Unit)? = null,
     canEditCompletedReport: Boolean = true,
-    onCompleteOrder: ((Uri?, String, String?, Uri?, String?) -> Unit)? = null,  // imageUri, comment, newStoveNumber, newStoveImageUri, customerReview
+    onCompleteOrder: ((Uri?, String, String?, Uri?, String?, String?) -> Unit)? = null,  // imageUri, comment, newStoveNumber, newStoveImageUri, customerReview, tempCookstoveNumber
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -109,6 +109,7 @@ fun TaskDetailScreen(
     var showCompleteOrderModal by remember { mutableStateOf(false) }
     var completeOrderImageUri by remember { mutableStateOf<Uri?>(null) }
     var completeOrderComment by remember { mutableStateOf("") }
+    var returnTempCookstoveNumber by remember { mutableStateOf("") }
     // Replacement-specific delivery fields
     var newStoveNumber by remember { mutableStateOf("") }
     var newStoveImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -537,6 +538,13 @@ fun TaskDetailScreen(
                                             value = address
                                         )
                                     }
+                                    task.temporaryCookstoveNumber?.let { tempNumber ->
+                                        OfficeDataItem(
+                                            icon = Icons.Default.Tag,
+                                            label = "Temporary Cookstove Number",
+                                            value = tempNumber
+                                        )
+                                    }
                                 }
                                 if (repairData != null) {
                                     HorizontalDivider(
@@ -750,6 +758,7 @@ fun TaskDetailScreen(
                 newStoveNumber = ""
                 newStoveImageUri = null
                 customerReview = ""
+                returnTempCookstoveNumber = ""
             },
             sheetState = completeOrderSheetState
         ) {
@@ -851,6 +860,18 @@ fun TaskDetailScreen(
                     maxLines = 5,
                     shape = RoundedCornerShape(12.dp)
                 )
+
+                // Temporary Cookstove Number (returned by customer)
+                OutlinedTextField(
+                    value = returnTempCookstoveNumber,
+                    onValueChange = { returnTempCookstoveNumber = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Temporary Cookstove Number") },
+                    placeholder = { Text("Enter if provided") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Default.Tag, contentDescription = null) }
+                )
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
@@ -868,7 +889,8 @@ fun TaskDetailScreen(
                             completeOrderComment,
                             newStoveNumber.ifBlank { null },
                             newStoveImageUri,
-                            customerReview.ifBlank { null }
+                            customerReview.ifBlank { null },
+                            returnTempCookstoveNumber.ifBlank { null }
                         )
                         showCompleteOrderModal = false
                         completeOrderImageUri = null
@@ -876,6 +898,7 @@ fun TaskDetailScreen(
                         newStoveNumber = ""
                         newStoveImageUri = null
                         customerReview = ""
+                        returnTempCookstoveNumber = ""
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = isEnabled
@@ -975,9 +998,11 @@ fun TaskDetailScreen(
 }
 
 private val TYPE_OF_REPAIR_OPTIONS = listOf(
-    "TOP_PLACE" to R.string.type_repair_top_place,
+    "TOP_REPAIR" to R.string.type_repair_top_repair,
+    "TOP_ROUND" to R.string.type_repair_top_round,
     "DOOR_REPAIR" to R.string.type_repair_door_repair,
-    "BOTTOM_REPAIR" to R.string.type_repair_bottom_repair
+    "BOTTOM_REPAIR" to R.string.type_repair_bottom_repair,
+    "LEG_REPAIR" to R.string.type_repair_leg_repair
 )
 
 @Composable

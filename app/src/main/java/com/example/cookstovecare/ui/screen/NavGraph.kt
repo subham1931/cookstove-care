@@ -314,7 +314,7 @@ fun CookstoveCareNavGraph(
                             } else null,
                             canEditCompletedReport = userRole == UserRole.SUPERVISOR,
                             onCompleteOrder = if (userRole == UserRole.FIELD_OFFICER) {
-                                { imageUri, comment, newStoveNumber, newStoveImageUri, customerReview ->
+                                { imageUri, comment, newStoveNumber, newStoveImageUri, customerReview, tempCookstoveNumber ->
                                     scope.launch {
                                         repository.completeOrderDistribution(
                                             taskId,
@@ -322,7 +322,8 @@ fun CookstoveCareNavGraph(
                                             comment.ifBlank { null },
                                             newStoveNumber = newStoveNumber,
                                             newStoveImageUri = newStoveImageUri?.toString(),
-                                            customerReview = customerReview
+                                            customerReview = customerReview,
+                                            returnedTempCookstoveNumber = tempCookstoveNumber
                                         )
                                     }
                                     navController.popBackStack()
